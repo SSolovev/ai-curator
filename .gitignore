@@ -1,0 +1,20 @@
+.venv/
+.idea/
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.env
+data/
+certs/*.pem
+certs/*.crt
+models/*.gguf
+secrets/*
+!secrets/.gitkeep
+# Reports contain dependency metadata only; inspect before committing in a corporate repository.
+reports/*.txt
+offline-bundle/
+dist/

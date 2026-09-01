@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-08-12T12:00:00+03:00",
+  "current_date": "2026-08-12",
+  "employee": {"employee_ref": "emp_demo_only", "display_name": null, "jira_key": "DEMO-1001", "issue_type": "Employee", "status": "Billable", "role": "Разработчик", "seniority": "Senior", "department": null, "attestation_date": null, "last_meaningful_interaction_at": "2026-06-21T12:00:00+03:00", "jira_recorded_risk": {"level": null, "type": null}, "jira_recorded_value": {"level": null, "types": []}},
+  "mood_monitoring": [{"source_ref": "jira:DEMO-2103", "period": "Q2 2026", "date": "2026-06-30", "status": "Closed", "scores": {"work_life_balance": 7, "work_content": 9, "client_processes": 6, "equipment": null, "recommendation": 9, "manager_interaction": 9, "help_contact": 8, "it1_helps": 8}, "comment": "Баланс улучшился, процессы клиента без изменений.", "closed": true}],
+  "incomplete_mood_monitoring": [],
+  "mood_dynamics": [],
+  "interactions": [{"source_ref": "jira-comment:7011", "date": "2026-06-21T12:00:00+03:00", "type": "1-1", "original_type": "👥 1-1", "author_role": "curator", "text": "Внутренний доклад состоялся; сотрудник хотел бы больше обратной связи по архитектурным решениям.", "visibility": "Curators", "relevance": 3}],
+  "feedback": [],
+  "context_selection": {"policy": "latest_3_closed_mm_and_latest_10_relevant_interactions", "included_source_refs": ["jira:DEMO-2103", "jira-comment:7011"], "excluded_source_refs": [], "warnings": ["Короткий обезличенный benchmark fixture."], "truncated": false}
+}

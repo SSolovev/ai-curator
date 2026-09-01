@@ -1,0 +1,33 @@
+{
+  "history_summary": {
+    "overall_dynamics": "По доступным данным содержание работы и баланс улучшились, а задержки ревью стоит проверить на актуальность.",
+    "recurring_topics": [{"statement": "В нескольких встречах упоминалась предсказуемость рабочих процессов.", "evidence": [{"source_ref": "jira-comment:7005", "date": "2025-04-20"}, {"source_ref": "jira-comment:7006", "date": "2025-05-22"}], "certainty": "fact", "verify_question": "Насколько сейчас предсказуема рабочая нагрузка?"}],
+    "positive_changes": [{"statement": "Оценка баланса выросла с 5 до 7.", "evidence": [{"source_ref": "jira:DEMO-2102", "date": "2025-06-30"}, {"source_ref": "jira:DEMO-2103", "date": "2026-06-30"}], "certainty": "fact", "verify_question": "Что помогло улучшить баланс?"}],
+    "unresolved_questions": [{"statement": "Актуальность задержек ревью неизвестна.", "evidence": [{"source_ref": "jira-comment:7009", "date": "2026-02-03"}], "certainty": "hypothesis", "verify_question": "Как сейчас проходит ревью?"}],
+    "signals_to_verify": []
+  },
+  "conversation_openers": [
+    {"basis": "Недавний рабочий контекст", "phrase": "Как прошли последние недели в проекте?"},
+    {"basis": "Развитие экспертизы", "phrase": "Какой отклик ты получил после внутреннего доклада?"},
+    {"basis": "Рабочие процессы", "phrase": "Что сейчас помогает работать спокойно и предсказуемо?"}
+  ],
+  "meeting_priorities": [
+    {"priority": 1, "topic": "Текущая нагрузка", "why_now": "Ранее динамика была противоречивой, а последняя оценка улучшилась.", "evidence": [{"source_ref": "jira:DEMO-2103", "date": "2026-06-30"}]},
+    {"priority": 2, "topic": "Обратная связь по архитектуре", "why_now": "Это последнее явно сформулированное пожелание.", "evidence": [{"source_ref": "jira-comment:7011", "date": "2026-06-21"}]}
+  ],
+  "sensitive_topics": [{"topic": "Рабочая нагрузка", "avoid": "Ты опять перегружен?", "use_instead": "Как сейчас ощущается объём и очередность задач?", "when_to_raise": "После общего вопроса о текущем контексте."}],
+  "agenda": [
+    {"start_minute": 0, "end_minute": 3, "goal": "Установить контакт", "curator_lines": ["Спасибо, что нашёл время."], "key_questions": [{"question": "Как ты сейчас?", "follow_up": null}], "listen_for": ["Темы, которые сотрудник назовёт сам"]},
+    {"start_minute": 3, "end_minute": 10, "goal": "Понять текущий контекст", "curator_lines": ["Хочу начать с твоего взгляда."], "key_questions": [{"question": "Что сейчас идёт хорошо, а что мешает?", "follow_up": "Можешь привести один недавний пример?"}], "listen_for": ["Изменения нагрузки"]},
+    {"start_minute": 10, "end_minute": 20, "goal": "Проверить приоритетные темы", "curator_lines": ["Можно свериться по двум рабочим темам?"], "key_questions": [{"question": "Насколько сейчас предсказуема нагрузка?", "follow_up": null}], "listen_for": ["Фактические задержки", "Нужная поддержка"]},
+    {"start_minute": 20, "end_minute": 26, "goal": "Обсудить развитие", "curator_lines": ["Хочу понять, какой следующий шаг тебе полезен."], "key_questions": [{"question": "Какая обратная связь по архитектуре сейчас была бы полезнее?", "follow_up": null}], "listen_for": ["Конкретный формат"]},
+    {"start_minute": 26, "end_minute": 30, "goal": "Зафиксировать договорённости", "curator_lines": ["Давай коротко сверим следующие шаги."], "key_questions": [{"question": "Что фиксируем, кто владелец и когда проверяем?", "follow_up": null}], "listen_for": ["Действие и владелец", "Срок"]}
+  ],
+  "curator_cheat_sheet": {
+    "three_signals": ["Предсказуемость нагрузки", "Скорость ревью", "Формат обратной связи"],
+    "three_desired_outcomes": ["Понять текущую ситуацию", "Выбрать поддержку", "Зафиксировать срок проверки"],
+    "follow_up_message_template": "Спасибо за встречу. Зафиксировали: [действие], владелец — [имя], проверяем [дата].",
+    "suggested_agreements": [{"action": "Уточнить формат архитектурной обратной связи", "owner": "Уточнить на встрече", "due": "Согласовать"}]
+  },
+  "data_quality": {"warnings": ["Одна проблема могла устареть и требует проверки."], "context_cut": true, "unused_source_refs": []}
+}

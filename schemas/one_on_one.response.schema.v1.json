@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-curator:one-on-one-response:1.0",
+  "title": "OneOnOnePlanV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["history_summary", "conversation_openers", "meeting_priorities", "sensitive_topics", "agenda", "curator_cheat_sheet", "data_quality"],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "date"],
+      "properties": {
+        "source_ref": {"type": "string", "minLength": 1, "maxLength": 160},
+        "date": {"type": "string", "format": "date"}
+      }
+    },
+    "topic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "evidence", "certainty", "verify_question"],
+      "properties": {
+        "statement": {"type": "string", "minLength": 1, "maxLength": 400},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}, "maxItems": 5},
+        "certainty": {"enum": ["fact", "hypothesis", "insufficient_data"]},
+        "verify_question": {"type": "string", "minLength": 1, "maxLength": 250}
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question", "follow_up"],
+      "properties": {
+        "question": {"type": "string", "minLength": 1, "maxLength": 300},
+        "follow_up": {"type": ["string", "null"], "maxLength": 300}
+      }
+    }
+  },
+  "properties": {
+    "history_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["overall_dynamics", "recurring_topics", "positive_changes", "unresolved_questions", "signals_to_verify"],
+      "properties": {
+        "overall_dynamics": {"type": "string", "minLength": 1, "maxLength": 600},
+        "recurring_topics": {"type": "array", "items": {"$ref": "#/$defs/topic"}, "maxItems": 10},
+        "positive_changes": {"type": "array", "items": {"$ref": "#/$defs/topic"}, "maxItems": 10},
+        "unresolved_questions": {"type": "array", "items": {"$ref": "#/$defs/topic"}, "maxItems": 10},
+        "signals_to_verify": {"type": "array", "items": {"$ref": "#/$defs/topic"}, "maxItems": 10}
+      }
+    },
+    "conversation_openers": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": {"type": "object", "additionalProperties": false, "required": ["basis", "phrase"], "properties": {
+        "basis": {"type": "string", "minLength": 1, "maxLength": 500},
+        "phrase": {"type": "string", "minLength": 1, "maxLength": 500}
+      }}
+    },
+    "meeting_priorities": {
+      "type": "array", "maxItems": 3,
+      "items": {"type": "object", "additionalProperties": false, "required": ["priority", "topic", "why_now", "evidence"], "properties": {
+        "priority": {"type": "integer", "minimum": 1, "maximum": 4},
+        "topic": {"type": "string", "minLength": 1, "maxLength": 500},
+        "why_now": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}, "maxItems": 2}
+      }}
+    },
+    "sensitive_topics": {
+      "type": "array", "maxItems": 2,
+      "items": {"type": "object", "additionalProperties": false, "required": ["topic", "avoid", "use_instead", "when_to_raise"], "properties": {
+        "topic": {"type": "string", "minLength": 1, "maxLength": 500},
+        "avoid": {"type": "string", "minLength": 1, "maxLength": 500},
+        "use_instead": {"type": "string", "minLength": 1, "maxLength": 500},
+        "when_to_raise": {"type": "string", "minLength": 1, "maxLength": 500}
+      }}
+    },
+    "agenda": {
+      "type": "array", "minItems": 1, "maxItems": 5,
+      "items": {"type": "object", "additionalProperties": false, "required": ["start_minute", "end_minute", "goal", "curator_lines", "key_questions", "listen_for"], "properties": {
+        "start_minute": {"type": "integer", "minimum": 0, "maximum": 29},
+        "end_minute": {"type": "integer", "minimum": 1, "maximum": 30},
+        "goal": {"type": "string", "minLength": 1, "maxLength": 300},
+        "curator_lines": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "maxItems": 2},
+        "key_questions": {"type": "array", "items": {"$ref": "#/$defs/question"}, "maxItems": 1},
+        "listen_for": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "maxItems": 2}
+      }}
+    },
+    "curator_cheat_sheet": {
+      "type": "object", "additionalProperties": false,
+      "required": ["three_signals", "three_desired_outcomes", "follow_up_message_template", "suggested_agreements"],
+      "properties": {
+        "three_signals": {"type": "array", "items": {"type": "string", "maxLength": 300}, "maxItems": 3},
+        "three_desired_outcomes": {"type": "array", "items": {"type": "string", "maxLength": 300}, "maxItems": 3},
+        "follow_up_message_template": {"type": "string", "minLength": 1, "maxLength": 600},
+        "suggested_agreements": {"type": "array", "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "required": ["action", "owner", "due"], "properties": {
+          "action": {"type": "string", "minLength": 1, "maxLength": 300},
+          "owner": {"type": "string", "minLength": 1, "maxLength": 120},
+          "due": {"type": "string", "minLength": 1, "maxLength": 120}
+        }}}
+      }
+    },
+    "data_quality": {
+      "type": "object", "additionalProperties": false,
+      "required": ["warnings", "context_cut", "unused_source_refs"],
+      "properties": {
+        "warnings": {"type": "array", "items": {"type": "string", "maxLength": 300}, "maxItems": 20},
+        "context_cut": {"type": "boolean"},
+        "unused_source_refs": {"type": "array", "items": {"type": "string", "maxLength": 160}, "maxItems": 50}
+      }
+    }
+  }
+}

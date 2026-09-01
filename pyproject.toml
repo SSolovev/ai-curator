@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-curator"
+version = "0.1.0"
+description = "Local privacy-first assistant for preparing 1:1 meetings"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "Proprietary - internal evaluation" }
+dependencies = [
+  "fastapi==0.139.2",
+  "httpx==0.28.1",
+  "jsonschema==4.25.1",
+  "pydantic==2.11.7",
+  "pydantic-settings==2.10.1",
+  "python-multipart==0.0.32",
+  "uvicorn[standard]==0.35.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.4.1",
+  "pytest-cov==6.2.1",
+  "ruff==0.12.7",
+]
+
+[project.scripts]
+ai-curator = "ai_curator.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_curator"]
+
+[tool.pytest.ini_options]
+addopts = "-q --disable-warnings"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "S"]
+ignore = ["S101", "E501"]
