@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -16,11 +17,11 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import Settings, get_settings
-from .domain import ConnectionInput, ExportInput, FieldMapping, GenerateInput
+from .domain import ConnectionInput, ExportInput, GenerateInput
 from .errors import CuratorError
 from .logging_config import configure_logging, correlation_id_var
 from .security import get_or_create_session_hmac_key
-from .service import CuratorService, SessionStore, markdown_export
+from .service import CuratorService, GenerationJob, SessionStore, markdown_export
 
 ROOT = Path(os.environ.get("CURATOR_ROOT", Path(__file__).resolve().parents[2]))
 logger = logging.getLogger("ai_curator")
@@ -28,14 +29,8 @@ logger = logging.getLogger("ai_curator")
 
 def create_app(settings: Settings | None = None, service: CuratorService | None = None) -> FastAPI:
     settings = settings or get_settings()
-    mapping_path = settings.data_dir / "field-mapping.json"
-    try:
-        saved_mapping = FieldMapping.model_validate_json(mapping_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        saved_mapping = FieldMapping()
     store = SessionStore(
         hmac_key=get_or_create_session_hmac_key(settings.hmac_key_file),
-        default_mapping=saved_mapping,
     )
     curator = service or CuratorService(settings, ROOT)
     csrf_tokens: dict[str, str] = {}
@@ -134,44 +129,131 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             "has_next": start + page_size < len(all_items),
         }
 
-    @app.get("/api/fields")
-    async def fields(request: Request):
-        return await curator.field_catalog(state(request))
-
-    @app.put("/api/mapping")
-    async def mapping(request: Request, body: FieldMapping):
-        session_state = state(request)
-        session_state.mapping = body
-        try:
-            settings.data_dir.mkdir(parents=True, exist_ok=True)
-            mapping_file = settings.data_dir / "field-mapping.json"
-            temporary = settings.data_dir / ".field-mapping.tmp"
-            temporary.write_text(body.model_dump_json(indent=2), encoding="utf-8")
-            temporary.replace(mapping_file)
-        except OSError as exc:
-            raise CuratorError(
-                "MAPPING_SAVE_FAILED",
-                "Не удалось сохранить mapping. Проверьте локальный каталог данных.",
-                500,
-            ) from exc
-        return {"ok": True, "warnings": curator.mapping_warnings(body)}
-
     @app.post("/api/employees/{key}/load")
     async def load_employee(request: Request, key: str, include_display_name: bool = False):
         return await curator.load_employee(state(request), key, include_display_name)
 
-    @app.post("/api/generate")
+    def generation_job(session, generation_id: str) -> GenerationJob:
+        job = session.generation_jobs.get(generation_id)
+        if job is None:
+            raise CuratorError(
+                "GENERATION_NOT_FOUND",
+                "Задача генерации не найдена или сессия завершена.",
+                404,
+            )
+        return job
+
+    async def run_generation_job(
+        session,
+        job: GenerationJob,
+        excluded_source_refs: set[str],
+        include_display_name: bool,
+    ) -> None:
+        try:
+            job.result = await curator.generate(
+                session,
+                job.generation_id,
+                excluded_source_refs,
+                include_display_name,
+            )
+            job.status = "succeeded"
+        except asyncio.CancelledError:
+            job.status = "cancelled"
+            job.error = {
+                "code": "GENERATION_CANCELLED",
+                "message": "Генерация отменена.",
+            }
+        except CuratorError as exc:
+            job.status = "cancelled" if exc.code == "GENERATION_CANCELLED" else "failed"
+            job.error = {"code": exc.code, "message": exc.user_message}
+            job.error_status_code = exc.status_code
+        except Exception as exc:
+            logger.exception(
+                "background_generation_failed",
+                extra={"code": type(exc).__name__},
+            )
+            job.status = "failed"
+            job.error = {
+                "code": "INTERNAL_ERROR",
+                "message": "Неожиданная ошибка. Повторите действие или откройте диагностику.",
+            }
+        finally:
+            job.finished_at = time.monotonic()
+            logger.info(
+                "background_generation_completed",
+                extra={
+                    "code": job.error["code"] if job.error else None,
+                    "duration_ms": round((job.finished_at - job.started_at) * 1000),
+                },
+            )
+
+    @app.post("/api/generate", status_code=202)
     async def generate(request: Request, body: GenerateInput):
-        return await curator.generate(state(request), body.generation_id, set(body.excluded_source_refs), body.include_display_name)
+        session = state(request)
+        completed_jobs = [
+            generation_id
+            for generation_id, existing_job in session.generation_jobs.items()
+            if existing_job.status != "running"
+        ]
+        for completed_generation_id in completed_jobs[:-5]:
+            session.generation_jobs.pop(completed_generation_id, None)
+        generation_id = uuid.uuid4().hex
+        job = GenerationJob(generation_id=generation_id)
+        session.generation_jobs[generation_id] = job
+        job.task = asyncio.create_task(
+            run_generation_job(
+                session,
+                job,
+                set(body.excluded_source_refs),
+                body.include_display_name,
+            ),
+            name=f"curator-generation-{generation_id}",
+        )
+        return job.status_payload()
+
+    @app.get("/api/generate/{generation_id}/status")
+    async def generation_status(request: Request, generation_id: str):
+        return generation_job(state(request), generation_id).status_payload()
+
+    @app.get("/api/generate/{generation_id}/result")
+    async def generation_result(request: Request, generation_id: str):
+        job = generation_job(state(request), generation_id)
+        if job.status == "running":
+            return JSONResponse(job.status_payload(), status_code=202)
+        if job.status != "succeeded" or job.result is None:
+            return JSONResponse(
+                {"error": job.error},
+                status_code=job.error_status_code if job.status == "failed" else 409,
+            )
+        return {
+            "generation_id": generation_id,
+            "status": job.status,
+            "result": job.result,
+        }
 
     @app.post("/api/generate/{generation_id}/cancel")
     async def cancel(request: Request, generation_id: str):
-        return {"cancelled": curator.cancel(state(request), generation_id)}
+        session = state(request)
+        job = generation_job(session, generation_id)
+        if job.status != "running":
+            return {"cancelled": False, **job.status_payload()}
+        cancelled = curator.cancel(session, generation_id)
+        if not cancelled and job.task is not None and not job.task.done():
+            job.task.cancel()
+            cancelled = True
+        if cancelled:
+            job.status = "cancelled"
+            job.error = {
+                "code": "GENERATION_CANCELLED",
+                "message": "Генерация отменена.",
+            }
+            job.error_status_code = 409
+            job.finished_at = time.monotonic()
+        return {"cancelled": cancelled, **job.status_payload()}
 
     @app.get("/api/model/diagnostics")
     async def model_diagnostics():
-        health = await curator.llm.health()
-        return {"runtime": "llama.cpp-compatible", "configured_model": settings.llm_model, "health": health, "contains_personal_data": False}
+        return await curator.model_diagnostics()
 
     @app.post("/api/export")
     async def export(body: ExportInput):

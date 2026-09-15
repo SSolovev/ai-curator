@@ -12,7 +12,8 @@ correlation_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        # Only an allowlist is emitted. Never pass source data as record arguments.
+        # Only an allowlist is emitted. Full LLM/Jira bodies reach it only through
+        # explicit diagnostic flags; never pass source data as record arguments.
         payload = {
             "level": record.levelname,
             "event": record.msg if isinstance(record.msg, str) else "application_event",
@@ -21,12 +22,24 @@ class JsonFormatter(logging.Formatter):
             "duration_ms": getattr(record, "duration_ms", None),
         }
         for field_name in (
+            "operation",
+            "runtime",
+            "record_count",
+            "redaction_count",
+            "attempt",
+            "http_method",
             "status_code",
             "content_type",
             "request_path",
+            "request_url",
+            "request_params",
+            "request_body",
             "redirect_location",
             "response_body",
             "response_truncated",
+            "finish_reason",
+            "prompt_tokens",
+            "completion_tokens",
         ):
             if hasattr(record, field_name):
                 payload[field_name] = getattr(record, field_name)

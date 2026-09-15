@@ -1,0 +1,1678 @@
+{
+  "fixture_origin": "latest-real-jira-response",
+  "employees": [
+    {
+      "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+      "id": "347217",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217",
+      "key": "GPBHIRE-129677",
+      "fields": {
+        "summary": "Александр К",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/10727",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Retired",
+          "id": "10727",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        },
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/10805",
+          "id": "10805",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10315&avatarType=issuetype",
+          "name": "Employee",
+          "subtask": false,
+          "avatarId": 10315
+        }
+      }
+    }
+  ],
+  "employee": {
+    "expand": "renderedFields,names,schema,operations,editmeta,changelog,versionedRepresentations",
+    "id": "347217",
+    "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217",
+    "key": "GPBHIRE-129677",
+    "fields": {
+      "summary": "Александр К",
+      "issuetype": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/10805",
+        "id": "10805",
+        "description": "",
+        "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10315&avatarType=issuetype",
+        "name": "Employee",
+        "subtask": false,
+        "avatarId": 10315
+      },
+      "customfield_14101": "ДИЭИР",
+      "customfield_11434": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/14080",
+        "value": "2",
+        "id": "14080",
+        "disabled": false
+      },
+      "customfield_11412": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/14014",
+        "value": "Lead",
+        "id": "14014",
+        "disabled": false
+      },
+      "customfield_11411": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/14003",
+        "value": "Java",
+        "id": "14003",
+        "disabled": false
+      },
+      "customfield_14804": null,
+      "customfield_11435": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/14087",
+        "value": "3",
+        "id": "14087",
+        "disabled": false
+      },
+      "customfield_11900": [
+        {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/18103",
+          "value": "Domain Knowledge",
+          "id": "18103",
+          "disabled": false
+        }
+      ],
+      "customfield_11459": "2027-08-04",
+      "customfield_11901": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/27809",
+        "value": "Rebalance 2026",
+        "id": "27809",
+        "disabled": false
+      },
+      "status": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/status/10727",
+        "description": "",
+        "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+        "name": "Retired",
+        "id": "10727",
+        "statusCategory": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+          "id": 3,
+          "key": "done",
+          "colorName": "green",
+          "name": "Выполнено"
+        }
+      }
+    }
+  },
+  "fields": [
+    {
+      "id": "customfield_11411",
+      "name": "Role",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 11411
+      }
+    },
+    {
+      "id": "customfield_11412",
+      "name": "Seniority",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 11412
+      }
+    },
+    {
+      "id": "customfield_14101",
+      "name": "Department",
+      "custom": true,
+      "schema": {
+        "type": "string",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textfield",
+        "customId": 14101
+      }
+    },
+    {
+      "id": "customfield_11459",
+      "name": "Attestation Date",
+      "custom": true,
+      "schema": {
+        "type": "date",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker",
+        "customId": 11459
+      }
+    },
+    {
+      "id": "customfield_11435",
+      "name": "Risk",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 11435
+      }
+    },
+    {
+      "id": "customfield_11901",
+      "name": "Risk Type",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 11901
+      }
+    },
+    {
+      "id": "customfield_11434",
+      "name": "Value",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 11434
+      }
+    },
+    {
+      "id": "customfield_11900",
+      "name": "Value Type",
+      "custom": true,
+      "schema": {
+        "type": "array",
+        "items": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:multiselect",
+        "customId": 11900
+      }
+    },
+    {
+      "id": "customfield_14804",
+      "name": "Feedback Comments",
+      "custom": true,
+      "schema": {
+        "type": "string",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textarea",
+        "customId": 14804
+      }
+    },
+    {
+      "id": "customfield_11418",
+      "name": "Start Date",
+      "custom": true,
+      "schema": {
+        "type": "date",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:datepicker",
+        "customId": 11418
+      }
+    },
+    {
+      "id": "customfield_12326",
+      "name": "MM Work-life balance",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12326
+      }
+    },
+    {
+      "id": "customfield_12330",
+      "name": "MM Work content",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12330
+      }
+    },
+    {
+      "id": "customfield_12332",
+      "name": "MM Client processes",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12332
+      }
+    },
+    {
+      "id": "customfield_12333",
+      "name": "MM Equipment",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12333
+      }
+    },
+    {
+      "id": "customfield_12334",
+      "name": "MM Recommendation",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12334
+      }
+    },
+    {
+      "id": "customfield_12335",
+      "name": "MM Manager interaction",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 12335
+      }
+    },
+    {
+      "id": "customfield_16104",
+      "name": "MM Help contact",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 16104
+      }
+    },
+    {
+      "id": "customfield_16105",
+      "name": "MM IT1 Helps",
+      "custom": true,
+      "schema": {
+        "type": "option",
+        "custom": "com.atlassian.jira.plugin.system.customfieldtypes:select",
+        "customId": 16105
+      }
+    }
+  ],
+  "comments": [
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/417983",
+      "id": "417983",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SASolovev",
+        "name": "SASolovev",
+        "key": "JIRAUSER21498",
+        "emailAddress": "SASolovev@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "{meeting-type}😊 MM{meeting-type}\n                Закрыт Mood Monitoring [MM AlexanderK 2026.01|https://project.gpb.tech/jira/browse/GPBHIRE-326530]\n                ",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SASolovev",
+        "name": "SASolovev",
+        "key": "JIRAUSER21498",
+        "emailAddress": "SASolovev@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2026-02-26T15:31:03.978+0300",
+      "updated": "2026-02-26T15:31:03.978+0300",
+      "visibility": {
+        "type": "role",
+        "value": "Curators"
+      }
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/402594",
+      "id": "402594",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "{meeting-type}📈 KPI{meeting-type}\n\nЛичный вклад за Q2'25 = 105% \n \"реально выручил команду, просто и так много денег\"",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-12-23T11:30:00.000+0300",
+      "updated": "2025-12-23T11:30:00.000+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/402790",
+      "id": "402790",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "{meeting-type}📈 KPI{meeting-type}\n\nЛичный вклад за Q3'25 = 125% \n \"какое-то время тащил 2 команды одновременно, пока Сергей ушел в СПР\"",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-12-23T11:30:00.000+0300",
+      "updated": "2025-12-23T11:30:00.000+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/398259",
+      "id": "398259",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "Комментарий ВКР от сотрудника: еще нужна для работы",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-12-08T17:10:52.861+0300",
+      "updated": "2025-12-08T17:10:52.861+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/396402",
+      "id": "396402",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SASolovev",
+        "name": "SASolovev",
+        "key": "JIRAUSER21498",
+        "emailAddress": "SASolovev@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "{meeting-type}👥 1-1{meeting-type}\r\nПровели 1-1 с Александром.\r\n\r\nАлександр считает что у него не складываются отношения с Яном из стрима ПК, поэтому возможность работы в ПК под вопросом. В импортозамещении его тоже не планируют оставлять, как он понял из разговора с Андреем Гаригиным.\r\nНе ставит задачи и цели так как неясно куда и как потом переходить.\r\nВ команде пк оношения выглядят достаточно неплохо, но отметил что Ким стал конфликтный, по мнению Александра - зазнался.\r\nНастроение не сильно воодушевляющее, но пытается быть оптимистичным.\r\nХотелось бы определенности.",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SASolovev",
+        "name": "SASolovev",
+        "key": "JIRAUSER21498",
+        "emailAddress": "SASolovev@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/bc77e1acf0d2520a5a8d1f471bf169cb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-12-01T15:43:47.869+0300",
+      "updated": "2025-12-01T15:43:47.869+0300",
+      "visibility": {
+        "type": "role",
+        "value": "Curators"
+      }
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/381186",
+      "id": "381186",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "{meeting-type}📈 KPI{meeting-type}\nЛичный вклад за Q1'25 = 110% \n \"тащил две команды\"",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=oneproject-technical-user",
+        "name": "oneproject-technical-user",
+        "key": "oneproject-technical-user",
+        "emailAddress": "oneproject-technical-user@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/62ec929cf9bff37ca0ff903c58264452?d=mm&s=32"
+        },
+        "displayName": "OneProject Technical User",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-10-15T10:00:00.000+0300",
+      "updated": "2025-10-15T10:00:00.000+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/374415",
+      "id": "374415",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "Комментарий ВКР от сотрудника: еще нужна для работы",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-09-18T11:20:12.201+0300",
+      "updated": "2025-09-18T11:20:12.201+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/369263",
+      "id": "369263",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "Комментарий ВКР от сотрудника: работаю еще и в стриме автокредиты, который на вкр пока не переходит",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=AZatochnyi",
+        "name": "AZatochnyi",
+        "key": "JIRAUSER16762",
+        "emailAddress": "AZatochnyi@gpb.tech",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?ownerId=JIRAUSER16762&avatarId=13311",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&ownerId=JIRAUSER16762&avatarId=13311",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&ownerId=JIRAUSER16762&avatarId=13311",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&ownerId=JIRAUSER16762&avatarId=13311"
+        },
+        "displayName": "Aleksei Zatochnyi",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-08-13T12:58:57.012+0300",
+      "updated": "2025-08-13T12:58:57.012+0300"
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/368243",
+      "id": "368243",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SSolovev",
+        "name": "SSolovev",
+        "key": "ssolovev",
+        "emailAddress": "Sergei.Solovev_Luxoft@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "1-1\r\n # Задействован техлидом на 2 направления Деньги+ и Импортозамещение. Из за этого сейчас большая нагрузка\r\n # План в команде сдвигают по Д+, но вроде успевают к конечной дате. Задачи стариются делать вовремя.\r\n # В команде Владимир был слабовать сначала, затем начал работать и комуницировать более активно, поправил все баги. Ким очень хотел стать синьором, хотел проявить себя, комитил в 12 ночи. Находил много недочетов в ратоте других членов команды, Леши и Владимира после аттестации подуспокоился, это помогло снизить напряжение в команде. Потом Ян дал Киму джуна в обучение. Сейчас меньше ревьюит, Александр К намекнул ему что лучше так не делать.\r\n # Обсудили цели и подготовку к аттестации\r\n\r\nОбщее впечатление от работы позитивное, но нагрузка очень большая сейчас .",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SSolovev",
+        "name": "SSolovev",
+        "key": "ssolovev",
+        "emailAddress": "Sergei.Solovev_Luxoft@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-08-06T15:17:46.259+0300",
+      "updated": "2025-08-06T15:17:46.259+0300",
+      "visibility": {
+        "type": "role",
+        "value": "Curators"
+      }
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/338926",
+      "id": "338926",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=DAtolaynen",
+        "name": "DAtolaynen",
+        "key": "datolaynen",
+        "emailAddress": "denis.atolaynen@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?avatarId=10350",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&avatarId=10350",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&avatarId=10350",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&avatarId=10350"
+        },
+        "displayName": "Denis Atolaynen",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "1:1\r\nВ целом, все хорошо. Подсветил, что изначально приходил на роль тимлида, но команда у него не собралась, поэтому он сейчас работает как обычный синьор. На данный момент это устраивает. Были варианты перейти на другой проект в качестве тимлида, но он не захотел подставлять команду, поэтому остался. \r\nЗадавал вопросы по ДМС, компенсации спорта, реферальной программе, обучению (Denis Atolaynen cкорее всего, скоро придет к тебе) хочет что-то в бизнес - направлении посмотреть, спрашивал, апрувят ли такие обучения)) не по специальности. \r\nОтдельно попросил сразу к нему прийти, если будет какой-то негативный фидбек от заказчика/команды\r\n(с) Олеся Образцова",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=DAtolaynen",
+        "name": "DAtolaynen",
+        "key": "datolaynen",
+        "emailAddress": "denis.atolaynen@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?avatarId=10350",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&avatarId=10350",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&avatarId=10350",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&avatarId=10350"
+        },
+        "displayName": "Denis Atolaynen",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2025-01-16T18:02:31.567+0300",
+      "updated": "2025-01-16T18:03:49.433+0300",
+      "visibility": {
+        "type": "role",
+        "value": "Curators"
+      }
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/330071",
+      "id": "330071",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SSolovev",
+        "name": "SSolovev",
+        "key": "ssolovev",
+        "emailAddress": "Sergei.Solovev_Luxoft@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "Пообщались с Александром 1-1.\r\n\r\nЗаполнили анкету ММ:\r\n\r\nMM Work-life balance - Мне удается соблюдать баланс работы и личной жизни                 10\r\nMM Work content - Мне интересны (нравятся) мои рабочие задачи                                       10\r\nMM Client processes - Процессы в моем проекте понятны                                                      10\r\nMM Equipment - У меня есть вся необходимая техника для работы от IT_ONE                     10\r\nMM Recommendation - Я готов рекомендовать IT_One в качестве потенциального места работы                             10\r\nMM Manager interaction - Мне хватает поддержки от моего непосредственного руководителя в IT_ONE  (Direct manager\\куратор) 10\r\nMM Help contact - Я понимаю к кому обращаться в IT_ONE по возникающим вопросам   10 \r\nMM IT1 Helps - IT_ONE помогает решать возникающие у меня вопросы                               10\r\n\r\n--\r\n\r\nКоманда ему очень нравится. Задачи интересны, хотя автотесты уже поднадоели.\r\nОбсудили цели на следующий год. Договорились что в декабре он сформулирует и заполнит их в жире.\r\nВыполнил важную задачу в рамках которой разработал базовый механизм по автоматизированному тестированию процесса выдачи кредита стандарта и альтернативы для канала ДБО.\r\nАлександр долгое время работал как солюшен архитектор и мало писал кода, поэтому сейчас приходится вспоминать некоторые технические моменты. Дополнительную нагрузку здесь создает достаточно большой новый для него проект. Это заметно, но в нужные для проекта сроки он укладывается, активно разбирается в местах которые вызывают вопросы.\r\n[~DAtolaynen] считаю, что испытательный срок можно закрывать.",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=SSolovev",
+        "name": "SSolovev",
+        "key": "ssolovev",
+        "emailAddress": "Sergei.Solovev_Luxoft@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=48",
+          "24x24": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=24",
+          "16x16": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=16",
+          "32x32": "https://project.gpb.tech/console/avatar/1d66c2dd929133dbdfc143d0b75e5cdb?d=mm&s=32"
+        },
+        "displayName": "Sergey Solovev",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2024-12-03T18:27:37.095+0300",
+      "updated": "2024-12-03T18:27:37.095+0300",
+      "visibility": {
+        "type": "role",
+        "value": "Curators"
+      }
+    },
+    {
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/347217/comment/322012",
+      "id": "322012",
+      "author": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=DAtolaynen",
+        "name": "DAtolaynen",
+        "key": "datolaynen",
+        "emailAddress": "denis.atolaynen@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?avatarId=10350",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&avatarId=10350",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&avatarId=10350",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&avatarId=10350"
+        },
+        "displayName": "Denis Atolaynen",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "body": "по разговору с Сергеем Соловьевым обновил риски, малопроизводителен",
+      "updateAuthor": {
+        "self": "https://project.gpb.tech/jira/rest/api/2/user?username=DAtolaynen",
+        "name": "DAtolaynen",
+        "key": "datolaynen",
+        "emailAddress": "denis.atolaynen@gazprombank.ru",
+        "avatarUrls": {
+          "48x48": "https://project.gpb.tech/jira/secure/useravatar?avatarId=10350",
+          "24x24": "https://project.gpb.tech/jira/secure/useravatar?size=small&avatarId=10350",
+          "16x16": "https://project.gpb.tech/jira/secure/useravatar?size=xsmall&avatarId=10350",
+          "32x32": "https://project.gpb.tech/jira/secure/useravatar?size=medium&avatarId=10350"
+        },
+        "displayName": "Denis Atolaynen",
+        "active": true,
+        "timeZone": "Europe/Moscow"
+      },
+      "created": "2024-11-06T17:35:37.024+0300",
+      "updated": "2024-11-06T17:35:37.024+0300"
+    }
+  ],
+  "children": [
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "653114",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/653114",
+      "key": "GPBHIRE-394530",
+      "fields": {
+        "summary": "Увольнение из банка",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/10202",
+          "id": "10202",
+          "description": "Подзадача запроса.",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10316&avatarType=issuetype",
+          "name": "Подзадача",
+          "subtask": true,
+          "avatarId": 10316
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-09-03T08:00:06.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-09-07T11:55:20.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/6",
+          "description": "Эта проблема считается завершенной, решение правильное. Закрытые задачи/проблемы можно вновь открыть.",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Закрыт",
+          "id": "6",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "651175",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/651175",
+      "key": "GPBHIRE-392792",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q4] 100%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T13:07:20.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T13:07:20.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "649986",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/649986",
+      "key": "GPBHIRE-391609",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q3] 100%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T12:57:09.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T12:57:09.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "649985",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/649985",
+      "key": "GPBHIRE-391608",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q3] 125%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T12:57:09.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T12:57:09.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "648698",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/648698",
+      "key": "GPBHIRE-390321",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q2] 105%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T12:46:47.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T12:46:47.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "648697",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/648697",
+      "key": "GPBHIRE-390320",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q2] 100%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T12:46:47.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T12:46:47.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "647252",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/647252",
+      "key": "GPBHIRE-389002",
+      "fields": {
+        "summary": "Personal Contribution AlexanderK [2025-Q3] 110%",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/18500",
+          "id": "18500",
+          "description": "Квартальный вклад сотрудника в KPI стрима",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=16400&avatarType=issuetype",
+          "name": "Personal Contribution",
+          "subtask": true,
+          "avatarId": 16400
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-08-24T12:36:24.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-08-24T12:36:25.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "619736",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/619736",
+      "key": "GPBHIRE-363636",
+      "fields": {
+        "summary": "Проверка ТШ Александр К",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/10202",
+          "id": "10202",
+          "description": "Подзадача запроса.",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10316&avatarType=issuetype",
+          "name": "Подзадача",
+          "subtask": true,
+          "avatarId": 10316
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2026-06-10T19:23:58.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-07-02T16:39:15.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/6",
+          "description": "Эта проблема считается завершенной, решение правильное. Закрытые задачи/проблемы можно вновь открыть.",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Закрыт",
+          "id": "6",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "605613",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/605613",
+      "key": "GPBHIRE-350808",
+      "fields": {
+        "summary": "MM AlexanderK 2026.04",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/11402",
+          "id": "11402",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15604&avatarType=issuetype",
+          "name": "Mood Monitoring",
+          "subtask": true,
+          "avatarId": 15604
+        },
+        "created": "2026-04-15T16:48:15.000+0300",
+        "customfield_12330": null,
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "customfield_12332": null,
+        "customfield_12334": null,
+        "customfield_12333": null,
+        "customfield_12335": null,
+        "customfield_12326": null,
+        "customfield_14804": null,
+        "customfield_11418": "2026-04-15",
+        "updated": "2026-04-15T19:58:45.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13700",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Not collected",
+          "id": "13700",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/2",
+            "id": 2,
+            "key": "new",
+            "colorName": "blue-gray",
+            "name": "К выполнению"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "579416",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/579416",
+      "key": "GPBHIRE-326530",
+      "fields": {
+        "summary": "MM AlexanderK 2026.01",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/11402",
+          "id": "11402",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15604&avatarType=issuetype",
+          "name": "Mood Monitoring",
+          "subtask": true,
+          "avatarId": 15604
+        },
+        "created": "2026-02-03T18:53:55.000+0300",
+        "customfield_12330": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19880",
+          "value": "10",
+          "id": "19880",
+          "disabled": false
+        },
+        "customfield_16105": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/26921",
+          "value": "10",
+          "id": "26921",
+          "disabled": false
+        },
+        "description": null,
+        "customfield_16104": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/26911",
+          "value": "10",
+          "id": "26911",
+          "disabled": false
+        },
+        "customfield_12332": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19900",
+          "value": "10",
+          "id": "19900",
+          "disabled": false
+        },
+        "customfield_12334": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19920",
+          "value": "10",
+          "id": "19920",
+          "disabled": false
+        },
+        "customfield_12333": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19910",
+          "value": "10",
+          "id": "19910",
+          "disabled": false
+        },
+        "customfield_12335": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19930",
+          "value": "10",
+          "id": "19930",
+          "disabled": false
+        },
+        "customfield_12326": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19840",
+          "value": "10",
+          "id": "19840",
+          "disabled": false
+        },
+        "customfield_14804": null,
+        "customfield_11418": "2026-01-31",
+        "updated": "2026-02-26T15:31:03.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/6",
+          "description": "Эта проблема считается завершенной, решение правильное. Закрытые задачи/проблемы можно вновь открыть.",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Закрыт",
+          "id": "6",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "565923",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/565923",
+      "key": "GPBHIRE-314202",
+      "fields": {
+        "summary": "Проверка ТШ Александр К",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/10202",
+          "id": "10202",
+          "description": "Подзадача запроса.",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10316&avatarType=issuetype",
+          "name": "Подзадача",
+          "subtask": true,
+          "avatarId": 10316
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2025-12-17T11:12:58.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2026-02-24T12:59:00.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/6",
+          "description": "Эта проблема считается завершенной, решение правильное. Закрытые задачи/проблемы можно вновь открыть.",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Закрыт",
+          "id": "6",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "551215",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/551215",
+      "key": "GPBHIRE-300629",
+      "fields": {
+        "summary": "Annual leave AlexanderK [2025-09-29; 2025-10-10]",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/17901",
+          "id": "17901",
+          "description": "Задача, которая создается на период отпуска сотрудника",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=10321&avatarType=issuetype",
+          "name": "Absence",
+          "subtask": true,
+          "avatarId": 10321
+        },
+        "customfield_14804": null,
+        "customfield_11418": "2025-09-29",
+        "created": "2025-11-13T21:38:43.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-11-13T21:38:43.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/10819",
+          "description": "The Document has been approved",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Approved",
+          "id": "10819",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "488550",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/488550",
+      "key": "GPBHIRE-241361",
+      "fields": {
+        "summary": "[ОС][2025-08-05] kirill.burmistrov@gazprombank.ru",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2025-08-05T13:42:53.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:34.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "488549",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/488549",
+      "key": "GPBHIRE-241360",
+      "fields": {
+        "summary": "[ОС][2025-08-05] yan.ashenkampf@gazprombank.ru",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2025-08-05T13:42:52.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-07T16:36:21.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "NO ANSWER",
+          "id": "13500",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "488548",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/488548",
+      "key": "GPBHIRE-241359",
+      "fields": {
+        "summary": "[ОС][2025-08-05] Aleksey.Savkin@gazprombank.ru",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2025-08-05T13:42:50.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-07T16:36:21.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "NO ANSWER",
+          "id": "13500",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "488547",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/488547",
+      "key": "GPBHIRE-241358",
+      "fields": {
+        "summary": "Аттестация 04.08.2025",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/13500",
+          "id": "13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=13405&avatarType=issuetype",
+          "name": "Attestation",
+          "subtask": true,
+          "avatarId": 13405
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2025-08-05T13:40:05.000+0300",
+        "customfield_16105": null,
+        "description": "Фиксирую результаты аттестационной встречи:\r\n\r\n*Итоги за прошедший год:*\r\n * Познакомился с системой ркк, выполнял задачи в условиях меняющихся требований\r\n * Активно принимал участие в разрботке автотестов\r\n * Работал над задачей гибких сроков\r\n * Активно разрабатывал все сервисы контекста Базового предложения Д+\r\n * Включился в работу команды импортозамещения, выполняет много технических задач\r\n * Прочитал книгу Марк Аврелий. Наедине с собой. Размышления.\r\n\r\nИз сложностей отметил:\r\n * Непросто было погрузиться в лидерство в двух командах на разных стеках\r\n * Смог наладить работу на двух стримах\r\n\r\nОбучение тренинги, методологии:\r\n * Учиться работать в Agile формате\r\n * Новый стек, асинхронное программирование flux, jooq\r\n\r\n*Обсудили обратную связь:*\r\n - Умело распределяет задачи в команде.\r\n - Помогает разобраться в вопросах касающихся разработки (либо знает, к кому обратиться для их решения).\r\n - Вообще по большей части команда живет сама по себе и вполне успешно, это скорее плюс Саше, раз все работает, значит все идет правильно.\r\n - Очень спокойный, что тоже соответственно поддерживает +- какое-то спокойствие в команде.\r\n - Значительно вырос в качестве лида за последние месяцы\r\n\r\nЗоны роста:\r\n - Больше внимания уделять оценке трудоемкость задач (каждый спринт чуть чуть не успеваем все доделать)\r\n - Тщательнее готовиться к общим встречам и групповым синкам\r\n\r\n*Вектор развития на последующий год:*\r\n *  Развиваться в качестве техлида в проекте пк\r\n *  Успешное завершение мвп Деньги+ в установленные сроки",
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:34.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/10728",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "On approval",
+          "id": "10728",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "466499",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/466499",
+      "key": "GPBHIRE-221760",
+      "fields": {
+        "summary": "MM AlexanderK 2025.04",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/11402",
+          "id": "11402",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15604&avatarType=issuetype",
+          "name": "Mood Monitoring",
+          "subtask": true,
+          "avatarId": 15604
+        },
+        "created": "2025-04-16T14:46:20.000+0300",
+        "customfield_12330": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19880",
+          "value": "10",
+          "id": "19880",
+          "disabled": false
+        },
+        "customfield_16105": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/26918",
+          "value": "7",
+          "id": "26918",
+          "disabled": false
+        },
+        "description": null,
+        "customfield_16104": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/26910",
+          "value": "9",
+          "id": "26910",
+          "disabled": false
+        },
+        "customfield_12332": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19900",
+          "value": "10",
+          "id": "19900",
+          "disabled": false
+        },
+        "customfield_12334": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19919",
+          "value": "9",
+          "id": "19919",
+          "disabled": false
+        },
+        "customfield_12333": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19910",
+          "value": "10",
+          "id": "19910",
+          "disabled": false
+        },
+        "customfield_12335": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19925",
+          "value": "5",
+          "id": "19925",
+          "disabled": false
+        },
+        "customfield_12326": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/customFieldOption/19837",
+          "value": "7",
+          "id": "19837",
+          "disabled": false
+        },
+        "customfield_14804": null,
+        "customfield_11418": "2025-04-01",
+        "updated": "2025-11-24T17:53:19.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/6",
+          "description": "Эта проблема считается завершенной, решение правильное. Закрытые задачи/проблемы можно вновь открыть.",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/closed.png",
+          "name": "Закрыт",
+          "id": "6",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "399541",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/399541",
+      "key": "GPBHIRE-167560",
+      "fields": {
+        "summary": "[ОС][2024-10-11] artur.v.ilyasov@gazprombank.ru",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2024-10-11T15:49:15.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:34.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "NO ANSWER",
+          "id": "13500",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "399540",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/399540",
+      "key": "GPBHIRE-167559",
+      "fields": {
+        "summary": "[ОС][2024-10-11] Ашенкампф Ян Станиславович",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2024-10-11T15:49:14.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:34.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "NO ANSWER",
+          "id": "13500",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "399539",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/399539",
+      "key": "GPBHIRE-167558",
+      "fields": {
+        "summary": "[ОС][2024-10-11] Ашенкампф Ян Станиславович",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2024-10-11T15:44:00.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:34.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/13500",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "NO ANSWER",
+          "id": "13500",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/3",
+            "id": 3,
+            "key": "done",
+            "colorName": "green",
+            "name": "Выполнено"
+          }
+        }
+      }
+    },
+    {
+      "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+      "id": "399538",
+      "self": "https://project.gpb.tech/jira/rest/api/2/issue/399538",
+      "key": "GPBHIRE-167557",
+      "fields": {
+        "summary": "[ОС][2024-10-11] Sergei.Solovev_Luxoft@gazprombank.ru",
+        "issuetype": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/issuetype/12602",
+          "id": "12602",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/secure/viewavatar?size=xsmall&avatarId=15606&avatarType=issuetype",
+          "name": "Feedback",
+          "subtask": true,
+          "avatarId": 15606
+        },
+        "customfield_14804": null,
+        "customfield_11418": null,
+        "created": "2024-10-11T15:43:59.000+0300",
+        "customfield_16105": null,
+        "description": null,
+        "customfield_16104": null,
+        "updated": "2025-09-04T12:59:33.000+0300",
+        "status": {
+          "self": "https://project.gpb.tech/jira/rest/api/2/status/11702",
+          "description": "",
+          "iconUrl": "https://project.gpb.tech/jira/images/icons/statuses/generic.png",
+          "name": "Collected",
+          "id": "11702",
+          "statusCategory": {
+            "self": "https://project.gpb.tech/jira/rest/api/2/statuscategory/4",
+            "id": 4,
+            "key": "indeterminate",
+            "colorName": "yellow",
+            "name": "В работе"
+          }
+        }
+      }
+    }
+  ]
+}

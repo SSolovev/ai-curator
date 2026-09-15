@@ -10,7 +10,7 @@
 <header><div><span class="eyebrow">Локальный помощник</span><h1>ИИ-Куратор</h1></div><span id="privacy">Данные остаются на этом устройстве</span></header>
 <main>
   <nav aria-label="Этапы">
-    <button class="step active" data-target="connect">1. Jira</button><button class="step" data-target="people">2. Подопечный</button><button class="step" data-target="mapping">3. Поля</button><button class="step" data-target="preview">4. Контекст</button><button class="step" data-target="result">5. Сценарий</button>
+    <button class="step active" data-target="connect">1. Jira</button><button class="step" data-target="people">2. Подопечный</button><button class="step" data-target="preview">3. Контекст</button><button class="step" data-target="result">4. Сценарий</button>
   </nav>
 
   <div id="notice" class="notice hidden" role="status"></div>
@@ -19,7 +19,15 @@
     <h2>Подключение к Jira</h2>
     <p>Токен используется только в памяти этой сессии. Он не попадёт в настройки, логи или модель.</p>
     <form id="connect-form">
-      <label>Адрес Jira<input name="jira_base_url" type="url" required placeholder="https://jira.company.local"></label>
+      <label>Источник данных
+        <select id="jira-source">
+          <option value="corporate" selected>Рабочая Jira — project.gpb.tech/jira</option>
+          <option value="demo">Демо Jira — вымышленные данные</option>
+          <option value="custom">Другой адрес Jira</option>
+        </select>
+      </label>
+      <p id="jira-source-hint" class="hint">Используется рабочая Jira по адресу https://project.gpb.tech/jira.</p>
+      <label>Адрес Jira<input id="jira-base-url" name="jira_base_url" type="url" required value="https://project.gpb.tech/jira" readonly placeholder="https://jira.company.local"></label>
       <label>Jira PAT<input name="token" type="password" autocomplete="off" placeholder="Оставьте пустым для Docker secret"></label>
       <details><summary>Корпоративный TLS и proxy</summary>
         <label>Путь к CA bundle<input name="ca_bundle_path" placeholder="/certs/corporate-ca.pem"></label>
@@ -37,29 +45,38 @@
     <div class="row"><button id="employees-prev">← Назад</button><span id="employees-page"></span><button id="employees-next">Дальше →</button></div>
   </section>
 
-  <section id="mapping" class="panel">
-    <h2>Проверка полей Jira</h2>
-    <p>Сопоставьте только те поля, которые точно соответствуют смыслу. Несопоставленные поля останутся пустыми.</p>
-    <form id="mapping-form" class="mapping-grid"></form>
-    <button id="save-mapping" class="primary">Сохранить идентификаторы</button>
-  </section>
-
   <section id="preview" class="panel">
-    <h2>Что увидит локальная модель</h2>
+    <h2 id="model-context-title">Что увидит локальная модель</h2>
     <p>Снимите флажок с любой записи, которую не нужно анализировать. Имя по умолчанию скрыто.</p>
-    <label class="inline"><input id="include-name" type="checkbox"> Передать модели отображаемое имя</label>
+    <label id="include-name-label" class="inline"><input id="include-name" type="checkbox"> <span>Передать модели отображаемое имя</span></label>
     <div id="context-summary"></div><div id="records"></div>
     <button id="generate" class="primary">Подготовить сценарий</button><button id="cancel" class="danger hidden">Отменить</button>
   </section>
 
   <section id="result" class="panel">
-    <div class="row spread"><h2>Сценарий встречи</h2><div><button id="copy">Копировать</button><button data-export="markdown">Markdown</button><button data-export="json">JSON</button></div></div>
+    <div class="row spread"><h2>Сценарий встречи</h2><div class="result-actions"><button id="copy">Копировать текст</button><button data-export="markdown">Скачать .md</button><button data-export="json">Исходный JSON</button></div></div>
+    <div id="generation-result-notice" class="notice hidden" role="status"></div>
     <p class="warning">Проверьте вывод и источники. Не используйте его как автоматическое кадровое решение.</p>
-    <div id="rendered-result"></div>
+    <label for="editable-result">Текст сценария</label>
+    <p class="hint">Текст можно отредактировать перед копированием в документ или комментарий Jira. Правки хранятся только на этой странице до завершения сессии или повторной генерации.</p>
+    <textarea id="editable-result" class="editable-result" rows="30" spellcheck="true" aria-describedby="editable-result-hint"></textarea>
+    <p id="editable-result-hint" class="hint">Кнопка «Копировать текст» и файл .md используют вашу отредактированную версию.</p>
+    <details class="structured-result"><summary>Структурированный результат и источники</summary><div id="rendered-result"></div></details>
   </section>
 
-  <section class="panel diagnostics"><details><summary>Диагностика локальной модели</summary><button id="diagnostics">Проверить модель</button><pre id="diagnostic-result"></pre></details></section>
+  <section class="panel diagnostics">
+    <details>
+      <summary>Модель и защита данных</summary>
+      <div class="runtime-controls">
+        <div class="runtime-current"><small>Активный runtime</small><strong id="model-runtime">Проверка…</strong></div>
+        <button id="diagnostics" type="button">Проверить модель</button>
+        <span id="model-status" class="model-status" aria-live="polite">Проверка…</span>
+      </div>
+      <p class="hint">Runtime выбирается до запуска ключом <code>CURATOR_LLM_RUNTIME</code>. Одновременно используется только одна модель.</p>
+      <pre id="diagnostic-result"></pre>
+    </details>
+  </section>
 </main>
-<footer><button id="forget">Завершить сессию и забыть данные</button><span>ИИ-Куратор 0.1.0 · без внешней телеметрии</span></footer>
+<footer><button id="forget">Завершить сессию и забыть данные</button><span>ИИ-Куратор 0.1.0 · без встроенной телеметрии</span></footer>
 <script src="/static/app.js" defer></script>
 </body></html>

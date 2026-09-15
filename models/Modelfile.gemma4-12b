@@ -1,0 +1,6 @@
+FROM gemma4:12b
+
+# 16K covers the observed AI Curator prompts while remaining practical on a
+# 16 GB Apple Silicon Mac. Ollama downloads the Q4_K_M model behind gemma4:12b.
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2

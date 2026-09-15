@@ -20,12 +20,14 @@ def golden_data():
 @pytest.fixture
 def mapping():
     return FieldMapping(
-        role="customfield_20001",
-        seniority="customfield_20002",
-        department="customfield_20003",
-        attestation_date="customfield_20004",
-        risk="customfield_20005",
-        risk_type="customfield_20006",
+        role="customfield_11411",
+        seniority="customfield_11412",
+        department="customfield_14101",
+        attestation_date="customfield_11459",
+        risk="customfield_11435",
+        risk_type="customfield_11901",
+        value="customfield_11434",
+        value_type="customfield_11900",
         feedback_comments="customfield_14804",
     )
 

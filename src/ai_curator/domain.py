@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+ModelRuntime = Literal["llama_cpp", "ollama", "external"]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -86,7 +88,7 @@ class MMChange(StrictModel):
 
 
 class ContextSelection(StrictModel):
-    policy: str = "latest_3_closed_mm_and_latest_10_relevant_interactions"
+    policy: str = "latest_3_closed_mm_up_to_50_comments_and_latest_10_feedback"
     included_source_refs: list[str] = Field(default_factory=list)
     excluded_source_refs: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -107,14 +109,14 @@ class NormalizedContext(StrictModel):
 
 
 class FieldMapping(StrictModel):
-    role: str | None = None
-    seniority: str | None = None
-    department: str | None = None
-    attestation_date: str | None = None
-    risk: str | None = None
-    risk_type: str | None = None
-    value: str | None = None
-    value_type: str | None = None
+    role: str | None = "customfield_11411"
+    seniority: str | None = "customfield_11412"
+    department: str | None = "customfield_14101"
+    attestation_date: str | None = "customfield_11459"
+    risk: str | None = "customfield_11435"
+    risk_type: str | None = "customfield_11901"
+    value: str | None = "customfield_11434"
+    value_type: str | None = "customfield_11900"
     feedback_comments: str | None = "customfield_14804"
 
 
@@ -132,7 +134,6 @@ class EmployeeChoice(StrictModel):
 
 
 class GenerateInput(StrictModel):
-    generation_id: str = Field(min_length=8, max_length=128)
     excluded_source_refs: list[str] = Field(default_factory=list, max_length=500)
     include_display_name: bool = False
 

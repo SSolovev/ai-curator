@@ -1,26 +1,12 @@
 from __future__ import annotations
 
 import json
-import re
 from copy import deepcopy
-from datetime import date
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator, FormatChecker
-
 from .errors import CuratorError
 
-PROHIBITED_PATTERNS = [
-    re.compile(r"\b(диагноз|депресси[яи]|биполярн|психопат|психическ(?:ое|ий) расстройств)\w*", re.I),
-    re.compile(r"\b(уволить|увольнение|понизить|понижение|сократить сотрудника)\b", re.I),
-    re.compile(r"\b(повысить|повышение|назначить компенсацию|снизить зарплату)\b", re.I),
-    re.compile(r"(?:вероятност|шанс).{0,30}(?:увольнен|уход).{0,10}\d+\s*%", re.I),
-]
-PROMISE_PATTERNS = [
-    re.compile(r"\bя\s+(?:обещаю|гарантирую|точно\s+сделаю|обязательно\s+сделаю)\b", re.I),
-    re.compile(r"\b(?:повышение|премия|компенсация)\s+(?:будет|гарантирован)\w*", re.I),
-]
 AGENDA_SCHEDULES = {
     1: ((0, 30),),
     2: ((0, 10), (10, 30)),
@@ -126,59 +112,38 @@ def finalize_computed_fields(result: Any, context: dict[str, Any]) -> Any:
     return finalized
 
 
-def validate_result(result: Any, context: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
-    if not isinstance(result, dict):
-        raise CuratorError("LLM_SCHEMA_INVALID", "Локальная модель вернула ответ неизвестного формата.", 502)
-    errors = sorted(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(result), key=lambda e: list(e.path))
-    if errors:
-        raise CuratorError("LLM_SCHEMA_INVALID", "Локальная модель не смогла сформировать корректный сценарий.", 502)
+def validate_result(result: Any, context: dict[str, Any], _schema: dict[str, Any]) -> dict[str, Any]:
+    """Validate only the minimal integrity guarantees retained by the application.
 
-    agenda = result["agenda"]
-    expected_start = 0
-    question_count = 0
-    for slot in agenda:
-        if slot["start_minute"] != expected_start or slot["end_minute"] <= slot["start_minute"]:
-            raise CuratorError("LLM_AGENDA_INVALID", "В сценарии обнаружены разрывы или пересечения времени.", 502)
-        expected_start = slot["end_minute"]
-        question_count += len(slot["key_questions"])
-    if expected_start != 30:
-        raise CuratorError("LLM_AGENDA_INVALID", "Сценарий модели не покрывает ровно 30 минут.", 502)
-    if question_count > 8:
-        raise CuratorError("LLM_QUESTION_LIMIT", "Модель превысила лимит ключевых вопросов.", 502)
+    The response schema is still supplied to the model as an output-format hint,
+    but the backend intentionally does not reject responses for schema, size,
+    schedule, date-format, wording, or policy constraints.
+    """
+    if not isinstance(result, dict):
+        raise CuratorError("LLM_SCHEMA_INVALID", "Модель вернула ответ неизвестного формата.", 502)
 
     valid_refs = all_source_refs(context)
-    valid_dates = source_dates(context)
     for node in _walk(result):
         evidence = node.get("evidence")
-        if isinstance(evidence, list):
-            if node.get("certainty") == "fact" and not evidence:
-                raise CuratorError("LLM_EVIDENCE_REQUIRED", "Фактический вывод модели не содержит источника.", 502)
-            for item in evidence:
-                if not isinstance(item, dict) or item.get("source_ref") not in valid_refs:
-                    raise CuratorError("LLM_SOURCE_UNKNOWN", "Модель сослалась на отсутствующий источник.", 502)
-                try:
-                    cited_date = str(item.get("date"))
-                    date.fromisoformat(cited_date)
-                except ValueError as exc:
-                    raise CuratorError("LLM_EVIDENCE_DATE", "Источник модели не содержит корректной даты.", 502) from exc
-                if valid_dates.get(item["source_ref"]) != cited_date:
-                    raise CuratorError(
-                        "LLM_EVIDENCE_DATE_MISMATCH",
-                        "Модель указала дату, не совпадающую с источником.",
-                        502,
-                    )
+        if node.get("certainty") == "fact" and (
+            not isinstance(evidence, list) or not evidence
+        ):
+            raise CuratorError(
+                "LLM_EVIDENCE_REQUIRED",
+                "Фактический вывод модели не содержит источника.",
+                502,
+            )
+        if not isinstance(evidence, list):
+            continue
+        for item in evidence:
+            if not isinstance(item, dict) or item.get("source_ref") not in valid_refs:
+                raise CuratorError(
+                    "LLM_SOURCE_UNKNOWN",
+                    "Модель сослалась на отсутствующий источник.",
+                    502,
+                )
+
     unused = result["data_quality"]["unused_source_refs"]
     if any(ref not in valid_refs for ref in unused):
         raise CuratorError("LLM_SOURCE_UNKNOWN", "Модель сослалась на отсутствующий источник.", 502)
-
-    rendered = json.dumps(result, ensure_ascii=False)
-    if any(pattern.search(rendered) for pattern in PROHIBITED_PATTERNS):
-        raise CuratorError("LLM_POLICY_VIOLATION", "Ответ модели нарушил ограничения безопасного использования.", 502)
-    follow_up = result["curator_cheat_sheet"]["follow_up_message_template"]
-    if any(pattern.search(follow_up) for pattern in PROMISE_PATTERNS):
-        raise CuratorError(
-            "LLM_UNAUTHORIZED_PROMISE",
-            "Итоговое сообщение содержит обещание, которое нужно согласовать вручную.",
-            502,
-        )
     return result

@@ -18,7 +18,19 @@ Proxy вводится в расширенных настройках подкл
 
 ## Model runtime unhealthy
 
-Проверьте `docker compose ps` и `docker compose logs model --tail 100`, наличие `models/Qwen3-4B-Q4_K_M.gguf`, checksum `cd models && shasum -a 256 -c SHA256SUMS`. Runtime port намеренно не доступен с host.
+Сначала проверьте активное значение `CURATOR_LLM_RUNTIME` в `.env`. После любого изменения повторно выполните `scripts/start.*`; переключения из UI нет.
+
+Для `llama.cpp (Docker)` проверьте `docker compose --profile llama ps` и `docker compose logs model --tail 100`, наличие `models/Qwen3-4B-Q4_K_M.gguf`, checksum `cd models && shasum -a 256 -c SHA256SUMS`. Runtime port намеренно не доступен с host.
+
+Для `Ollama (Native)` проверьте, что приложение Ollama запущено, а `ollama list` содержит выбранный в `CURATOR_OLLAMA_MODEL` тег: `ai-curator-gemma4-12b:latest` или `ai-curator-qwen3-8b:latest`. Если тега нет, выполните `./scripts/prepare-ollama.sh gemma4-12b` либо `./scripts/prepare-ollama.sh qwen3-8b`. Проверить доступ из app container можно так:
+
+```bash
+docker compose exec app python -c 'import httpx; print(httpx.get("http://host.docker.internal:11434/api/tags", timeout=10).status_code)'
+```
+
+Ожидаемый статус — `200`. Не заменяйте адрес внешним host и не публикуйте Ollama на сетевом интерфейсе без firewall и согласования с IT.
+
+Для `external` диагностика должна показать `health.ok=true` одновременно у внешнего API и у `privacy_filter`. Проверьте `secrets/external_llm_api_key`, непустой `secrets/pii_dictionary.txt` и наличие `ai-curator-pii-gemma3-4b` через `ollama show`. Ошибка `PII_FILTER_FAILED` означает, что внешний запрос намеренно не был отправлен. Полная настройка: [EXTERNAL_LLM.md](EXTERNAL_LLM.md).
 
 ## Windows/WSL2
 
@@ -26,5 +38,33 @@ Proxy вводится в расширенных настройках подкл
 
 ## Сценарий отклонён валидатором
 
-Приложение уже сделало одну repair-попытку. Повторите один раз с меньшим контекстом. Если diagnostic code сохраняется, запишите только code/correlation id и версию model/runtime; не прикладывайте комментарии Jira или prompt.
+Backend отклоняет только не-объектный ответ, факт без `evidence` или ссылку на отсутствующий в контексте `source_ref`. Проверки JSON Schema, расписания, дат, размеров и формулировок отключены. Если `CURATOR_LLM_REPAIR_ENABLED=true`, приложение может сделать одну repair-попытку; при значении `false` ошибка возвращается сразу.
 
+## Failed to fetch во время генерации
+
+Генерация работает как фоновая задача, а браузер выполняет короткий polling раз в три секунды. Единичный сетевой сбой повторяется автоматически. Если сообщение остаётся после нескольких попыток, проверьте `docker compose ps`, обновите страницу: активный `generation_id` хранится в `sessionStorage`, и ожидание продолжится в той же сессии. После перезапуска backend незавершённые задачи восстановить нельзя.
+
+## Полный запрос, ответ и время этапов LLM
+
+Временно установите `CURATOR_LLM_LOG_REQUEST_RESPONSE=true` в `.env` и пересоздайте `app`. Полные payload содержат переданный модели контекст сотрудника и результат анализа, поэтому не публикуйте их и выключите флаг после диагностики.
+
+```bash
+docker compose build app
+docker compose up -d --no-deps --force-recreate app
+docker compose logs --no-log-prefix -f app | rg 'llm_'
+```
+
+События `llm_request_payload` и `llm_response_payload` содержат полные данные локальной модели. Для внешнего runtime используются `external_llm_request_payload` и `external_llm_response_payload`; сырой ввод PII-модели не логируется. Длительности в миллисекундах находятся в `pii_filter_completed`, `llm_data_preparation_completed`, `llm_model_response_completed`, `llm_postprocessing_completed` и `llm_validation_completed`. `operation` различает обычную генерацию (`generate`) и исправление (`repair`).
+
+После проверки верните `CURATOR_LLM_LOG_REQUEST_RESPONSE=false` и снова пересоздайте `app`.
+
+## Полный запрос и ответ Jira
+
+Временно установите `CURATOR_JIRA_LOG_REQUEST_RESPONSE=true` в `.env`, пересоздайте `app` и смотрите события:
+
+```bash
+docker compose up -d --no-deps --force-recreate app
+docker compose logs --no-log-prefix -f app | rg 'jira_(request|response)_payload'
+```
+
+`jira_request_payload` содержит полный URL и query-параметры, а `jira_response_payload` — статус и полный текст ответа без маскирования. Заголовок `Authorization` и PAT не логируются. После диагностики верните флаг в `false` и снова пересоздайте `app`.

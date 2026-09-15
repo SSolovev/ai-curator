@@ -278,25 +278,29 @@ def select_context(
     valid_closed = [m for m in moods if m.closed and m.date]
     selected_moods = valid_closed[:3]
     incomplete = [m for m in moods if not (m.closed and m.date)]
-    relevant = [i for i in interactions if i.relevance > 0][:10]
+    selected_interactions = list(interactions)
     selected_feedback = feedback[:10]
-    included = [x.source_ref for x in [*selected_moods, *relevant, *selected_feedback]]
+    included = [x.source_ref for x in [*selected_moods, *selected_interactions, *selected_feedback]]
     all_refs = [x.source_ref for x in [*moods, *interactions, *feedback]]
     warnings: list[str] = []
-    truncated = len(valid_closed) > 3 or len([i for i in interactions if i.relevance > 0]) > 10 or len(feedback) > 10
+    truncated = len(valid_closed) > 3 or len(feedback) > 10
     if truncated:
-        warnings.append("Контекст сокращён детерминированно по дате, типу и значимости.")
+        warnings.append("Контекст сокращён детерминированно по дате и типу.")
     if incomplete:
         warnings.append("Незавершённые MM показаны отдельно и не участвуют в динамике.")
-    # Deterministic tail trimming, favoring recent interactions and three MM entries.
-    while sum(len(i.text) for i in relevant) + sum(len(f.text) for f in selected_feedback) > max_context_chars and (relevant or selected_feedback):
-        if selected_feedback and (not relevant or (selected_feedback[-1].date or date.min) <= relevant[-1].date.date()):
-            selected_feedback.pop()
-        else:
-            relevant.pop()
+    # Jira comments are never removed here: the generation pipeline compacts every
+    # fetched comment in bounded batches before building the final model context.
+    # The legacy text budget only limits the additional feedback-subtask history.
+    while (
+        sum(len(i.text) for i in selected_interactions)
+        + sum(len(f.text) for f in selected_feedback)
+        > max_context_chars
+        and selected_feedback
+    ):
+        selected_feedback.pop()
         truncated = True
-    included = [x.source_ref for x in [*selected_moods, *relevant, *selected_feedback]]
-    return selected_moods, incomplete, relevant, selected_feedback, ContextSelection(
+    included = [x.source_ref for x in [*selected_moods, *selected_interactions, *selected_feedback]]
+    return selected_moods, incomplete, selected_interactions, selected_feedback, ContextSelection(
         included_source_refs=included,
         excluded_source_refs=sorted(set(all_refs) - set(included)),
         warnings=warnings,

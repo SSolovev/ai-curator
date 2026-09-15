@@ -8,5 +8,5 @@
   "mood_dynamics": [],
   "interactions": [{"source_ref": "jira-comment:7011", "date": "2026-06-21T12:00:00+03:00", "type": "1-1", "original_type": "👥 1-1", "author_role": "curator", "text": "Внутренний доклад состоялся; сотрудник хотел бы больше обратной связи по архитектурным решениям.", "visibility": "Curators", "relevance": 3}],
   "feedback": [],
-  "context_selection": {"policy": "latest_3_closed_mm_and_latest_10_relevant_interactions", "included_source_refs": ["jira:DEMO-2103", "jira-comment:7011"], "excluded_source_refs": [], "warnings": ["Короткий обезличенный benchmark fixture."], "truncated": false}
+  "context_selection": {"policy": "latest_3_closed_mm_up_to_50_comments_and_latest_10_feedback", "included_source_refs": ["jira:DEMO-2103", "jira-comment:7011"], "excluded_source_refs": [], "warnings": ["Короткий обезличенный benchmark fixture."], "truncated": false}
 }

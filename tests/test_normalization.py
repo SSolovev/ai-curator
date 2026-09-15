@@ -7,6 +7,7 @@ from ai_curator.normalization import (
     normalize_interactions,
     parse_datetime,
     parse_meeting_type,
+    select_context,
 )
 
 
@@ -54,12 +55,32 @@ def test_custom_fields_selection_nulls_and_dynamics(normalized):
     assert len([x for x in changes if x.metric == "it1_helps"]) == 0
 
 
-def test_latest_three_and_up_to_ten_meaningful_interactions(normalized):
-    assert len(normalized.interactions) <= 10
+def test_latest_three_mm_and_all_fetched_jira_comments(normalized, golden_data):
+    assert len(normalized.interactions) == len(golden_data["comments"])
     refs = {x.source_ref for x in normalized.interactions}
-    assert "jira-comment:7010" not in refs
+    assert "jira-comment:7010" in refs
     assert "jira-comment:7011" in refs
+    assert "jira-comment:7012" in refs
     assert normalized.context_selection.truncated is False
+
+
+def test_context_budget_never_drops_fetched_jira_comments(normalized):
+    selected = select_context(
+        normalized.mood_monitoring,
+        normalized.interactions,
+        normalized.feedback,
+        max_context_chars=1,
+    )
+
+    selected_interactions = selected[2]
+    selection = selected[4]
+    assert [item.source_ref for item in selected_interactions] == [
+        item.source_ref for item in normalized.interactions
+    ]
+    assert all(
+        item.source_ref in selection.included_source_refs
+        for item in normalized.interactions
+    )
 
 
 def test_hmac_reference_is_stable_and_name_hidden_by_default(normalized):

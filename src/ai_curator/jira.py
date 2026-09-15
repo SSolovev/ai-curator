@@ -27,6 +27,8 @@ HTML_SECRET_RE = re.compile(
     r'(?i)(name=["\'](?:access[_-]?token|refresh[_-]?token|csrf[_-]?token|xsrf[_-]?token|password|passwd)["\'][^>]*value=["\'])([^"\']+)'
 )
 logger = logging.getLogger("ai_curator.jira")
+MAX_ANALYSIS_COMMENTS = 50
+ANALYSIS_COMMENT_FIELDS = ("id", "created", "updated", "body", "visibility")
 
 
 def _safe_redirect_location(value: str | None) -> str | None:
@@ -72,6 +74,7 @@ class JiraTransportConfig:
     proxy_url: str | None = None
     connect_timeout: float = 8.0
     read_timeout: float = 25.0
+    log_request_response: bool = False
     log_invalid_response_body: bool = False
     log_field_catalog: bool = False
     log_employee_issue: bool = False
@@ -96,6 +99,12 @@ class JiraClient:
             transport=transport,
         )
 
+    @staticmethod
+    def _relative_path(path: str) -> str:
+        # A relative request path preserves installations mounted below a context
+        # path, for example https://project.gpb.tech/jira/rest/api/2/...
+        return path.lstrip("/")
+
     async def __aenter__(self) -> "JiraClient":
         return self
 
@@ -105,20 +114,65 @@ class JiraClient:
     async def close(self) -> None:
         await self._client.aclose()
 
+    def _log_request(self, path: str, params: dict[str, Any] | None, attempt: int) -> None:
+        if not self.config.log_request_response:
+            return
+        request = self._client.build_request(
+            "GET", self._relative_path(path), params=params
+        )
+        logger.info(
+            "jira_request_payload",
+            extra={
+                "attempt": attempt,
+                "http_method": "GET",
+                "request_path": request.url.path,
+                "request_url": str(request.url),
+                "request_params": json.dumps(params or {}, ensure_ascii=False, separators=(",", ":")),
+                "request_body": None,
+            },
+        )
+
+    def _log_response(self, response: httpx.Response, body: bytes, attempt: int) -> None:
+        if not self.config.log_request_response:
+            return
+        try:
+            response_body = body.decode(response.encoding or "utf-8", errors="replace")
+        except LookupError:
+            response_body = body.decode("utf-8", errors="replace")
+        logger.info(
+            "jira_response_payload",
+            extra={
+                "attempt": attempt,
+                "http_method": response.request.method,
+                "status_code": response.status_code,
+                "content_type": response.headers.get("Content-Type"),
+                "request_path": response.request.url.path,
+                "request_url": str(response.request.url),
+                "response_body": response_body,
+                "response_truncated": False,
+            },
+        )
+
     async def _request(self, path: str, params: dict[str, Any] | None = None) -> Any:
         last_error: Exception | None = None
         for attempt in range(self.config.max_retries + 1):
+            attempt_number = attempt + 1
+            self._log_request(path, params, attempt_number)
             try:
-                async with self._client.stream("GET", path, params=params) as response:
+                async with self._client.stream(
+                    "GET", self._relative_path(path), params=params
+                ) as response:
                     if response.status_code in {429, 500, 502, 503, 504} and attempt < self.config.max_retries:
                         retry_after = response.headers.get("Retry-After")
                         delay = min(float(retry_after), 5.0) if retry_after and retry_after.isdigit() else 0.25 * 2**attempt
-                        await response.aread()
+                        retry_body = await response.aread()
+                        self._log_response(response, retry_body, attempt_number)
                         # Jitter is scheduling noise, not a security token.
                         await asyncio.sleep(delay + random.uniform(0, 0.05))  # noqa: S311
                         continue
                     if response.status_code >= 400:
-                        await response.aread()
+                        error_body = await response.aread()
+                        self._log_response(response, error_body, attempt_number)
                         raise jira_http_error(response.status_code)
                     announced_length = response.headers.get("Content-Length")
                     if (
@@ -143,6 +197,7 @@ class JiraClient:
                             )
                         chunks.append(chunk)
                     body = b"".join(chunks)
+                    self._log_response(response, body, attempt_number)
                     if not body:
                         raise CuratorError("JIRA_EMPTY_RESPONSE", "Jira вернула пустой ответ.", 502)
                     try:
@@ -268,34 +323,32 @@ class JiraClient:
             )
         return data if isinstance(data, dict) else {}
 
-    async def comments(self, key: str, page_size: int = 50, max_pages: int = 100) -> list[dict[str, Any]]:
+    async def comments(self, key: str, limit: int = MAX_ANALYSIS_COMMENTS) -> list[dict[str, Any]]:
         safe_key = validate_employee_key(key)
-        comments: list[dict[str, Any]] = []
-        start_at = 0
-        for _ in range(max_pages):
-            data = await self._request(
-                f"/rest/api/2/issue/{safe_key}/comment",
-                params={"startAt": start_at, "maxResults": page_size},
-            )
-            page = data.get("comments", []) if isinstance(data, dict) else []
-            if not isinstance(page, list):
-                raise CuratorError("JIRA_INVALID_JSON", "Jira вернула неожиданный формат комментариев.", 502)
-            comments.extend(page)
-            total = int(data.get("total", len(page)))
-            next_start = int(data.get("startAt", start_at)) + len(page)
-            if not page or next_start >= total:
-                return comments
-            start_at = next_start
-        raise CuratorError("JIRA_PAGINATION_LIMIT", "Слишком много страниц комментариев Jira; уточните запрос.", 502)
+        bounded_limit = max(1, min(limit, MAX_ANALYSIS_COMMENTS))
+        data = await self._request(
+            f"/rest/api/2/issue/{safe_key}/comment",
+            params={"startAt": 0, "maxResults": bounded_limit, "orderBy": "-created"},
+        )
+        comments = data.get("comments", []) if isinstance(data, dict) else []
+        if not isinstance(comments, list):
+            raise CuratorError("JIRA_INVALID_JSON", "Jira вернула неожиданный формат комментариев.", 502)
+        return [
+            {field: comment[field] for field in ANALYSIS_COMMENT_FIELDS if field in comment}
+            for comment in comments[:bounded_limit]
+            if isinstance(comment, dict)
+        ]
 
-    async def child_issues(self, key: str, page_size: int = 50) -> list[dict[str, Any]]:
+    async def child_issues(
+        self, key: str, fields: list[str], page_size: int = 50
+    ) -> list[dict[str, Any]]:
         safe_key = validate_employee_key(key)
         # Fetch all children and classify locally: issue type names differ between Jira installations.
         # Only a validated key is interpolated. The full JQL remains a query parameter.
         jql = f"parent = {safe_key} ORDER BY created DESC"
         return await self.search_all(
             jql=jql,
-            fields=["summary", "status", "created", "updated", "issuetype", "description", "*all"],
+            fields=fields,
             page_size=page_size,
         )
 

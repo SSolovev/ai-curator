@@ -1,21 +1,59 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from .comment_analysis import (
+    apply_comment_extraction,
+    build_comment_extraction_messages,
+    comment_extraction_schema,
+    split_comment_batches,
+)
 from .config import Settings
-from .domain import FieldMapping
+from .domain import FieldMapping, ModelRuntime
 from .errors import CuratorError
+from .external_llm import build_external_runtime
 from .jira import JiraClient, JiraTransportConfig, validate_employee_key
-from .llm import LlamaCppClient, LocalLLM
-from .normalization import apply_exclusions, normalize_bundle
+from .llm import LlamaCppClient, LocalLLM, OllamaClient
+from .normalization import MM_FIELDS, apply_exclusions, normalize_bundle
+from .privacy_filter import PersonalDataFilter, PrivacyFilterSession
 from .prompting import build_messages
 from .security import get_or_create_session_hmac_key, read_secret_file
 from .validation import finalize_computed_fields, load_schema, validate_result
+
+logger = logging.getLogger("ai_curator.generation")
+
+
+GenerationStatus = Literal["running", "succeeded", "failed", "cancelled"]
+
+
+@dataclass
+class GenerationJob:
+    generation_id: str
+    status: GenerationStatus = "running"
+    result: dict[str, Any] | None = None
+    error: dict[str, Any] | None = None
+    error_status_code: int = 500
+    started_at: float = field(default_factory=time.monotonic)
+    finished_at: float | None = None
+    task: asyncio.Task[None] | None = field(default=None, repr=False)
+
+    def status_payload(self) -> dict[str, Any]:
+        finished_at = self.finished_at or time.monotonic()
+        payload: dict[str, Any] = {
+            "generation_id": self.generation_id,
+            "status": self.status,
+            "elapsed_seconds": round(finished_at - self.started_at, 1),
+        }
+        if self.error is not None:
+            payload["error"] = self.error
+        return payload
 
 
 @dataclass
@@ -26,24 +64,35 @@ class SessionState:
     selected_key: str | None = None
     hmac_key: bytes = field(default_factory=lambda: get_or_create_session_hmac_key())
     cancel_events: dict[str, asyncio.Event] = field(default_factory=dict)
+    generation_jobs: dict[str, GenerationJob] = field(default_factory=dict)
 
     def clear(self) -> None:
+        cancellable_generation_ids = set(self.cancel_events)
+        for event in self.cancel_events.values():
+            event.set()
+        for generation_id, job in self.generation_jobs.items():
+            if (
+                generation_id not in cancellable_generation_ids
+                and job.task is not None
+                and not job.task.done()
+            ):
+                job.task.cancel()
         self.jira_config = None
         self.context = None
         self.selected_key = None
         self.cancel_events.clear()
+        self.generation_jobs.clear()
 
 
 class SessionStore:
-    def __init__(self, hmac_key: bytes | None = None, default_mapping: FieldMapping | None = None) -> None:
+    def __init__(self, hmac_key: bytes | None = None) -> None:
         self._sessions: dict[str, SessionState] = {}
         self._hmac_key = hmac_key
-        self._default_mapping = default_mapping or FieldMapping()
 
     def get(self, session_id: str) -> SessionState:
         if session_id not in self._sessions:
             self._sessions[session_id] = SessionState(
-                mapping=self._default_mapping.model_copy(deep=True),
+                mapping=FieldMapping(),
                 hmac_key=self._hmac_key or get_or_create_session_hmac_key(),
             )
         return self._sessions[session_id]
@@ -55,7 +104,13 @@ class SessionStore:
 
 
 class CuratorService:
-    def __init__(self, settings: Settings, root: Path, llm: LocalLLM | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        root: Path,
+        llm: LocalLLM | None = None,
+        privacy_filter: PersonalDataFilter | None = None,
+    ):
         self.settings = settings
         self.root = root
         self.schema = load_schema(root / "schemas/one_on_one.response.schema.v1.json")
@@ -75,8 +130,66 @@ class CuratorService:
         model_agenda_item["properties"].pop("start_minute", None)
         model_agenda_item["properties"].pop("end_minute", None)
         self.system_prompt = root / "prompts/one_on_one.system.txt"
-        self.llm = llm or LlamaCppClient(settings.llm_base_url, settings.llm_model, settings.llm_timeout_seconds)
+        self.comment_extraction_prompt = root / "prompts/comment_extraction.system.txt"
+        self.runtime: ModelRuntime = settings.llm_runtime
+        self.privacy_filter = privacy_filter
+        if llm is not None:
+            if self.runtime == "external" and self.privacy_filter is None:
+                raise ValueError("external runtime cannot be constructed without a privacy filter")
+            self.llm = llm
+        elif self.runtime == "llama_cpp":
+            self.llm = LlamaCppClient(
+                settings.llm_base_url,
+                settings.llm_model,
+                settings.llm_timeout_seconds,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+                log_request_response=settings.llm_log_request_response,
+            )
+        elif self.runtime == "ollama":
+            self.llm = OllamaClient(
+                settings.ollama_base_url,
+                settings.ollama_model,
+                settings.llm_timeout_seconds,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+                reasoning_effort=settings.llm_reasoning_effort,
+                log_request_response=settings.llm_log_request_response,
+            )
+        else:
+            external = build_external_runtime(settings, root)
+            self.llm = external.llm
+            self.privacy_filter = external.privacy_filter
         self.generation_limit = asyncio.Semaphore(1)
+
+    async def model_diagnostics(self) -> dict[str, Any]:
+        health = await self.llm.health()
+        configured_models = {
+            "llama_cpp": self.settings.llm_model,
+            "ollama": self.settings.ollama_model,
+            "external": self.settings.external_llm_model,
+        }
+        runtime_labels = {
+            "llama_cpp": "llama.cpp (Docker)",
+            "ollama": "Ollama (Native)",
+            "external": "Внешняя LLM",
+        }
+        diagnostics = {
+            "runtime": self.runtime,
+            "runtime_label": runtime_labels[self.runtime],
+            "configured_model": configured_models[self.runtime],
+            "health": health,
+            "contains_personal_data": False,
+        }
+        if self.privacy_filter is not None:
+            diagnostics["privacy_filter"] = {
+                "enabled": True,
+                "model": self.settings.pii_filter_model,
+                "health": await self.privacy_filter.health(),
+                "dictionary_filter": True,
+                "fail_closed": True,
+            }
+        return diagnostics
 
     def jira(self, state: SessionState) -> JiraClient:
         if not state.jira_config:
@@ -96,6 +209,7 @@ class CuratorService:
             proxy_url=proxy_url,
             connect_timeout=self.settings.jira_connect_timeout_seconds,
             read_timeout=self.settings.jira_read_timeout_seconds,
+            log_request_response=self.settings.jira_log_request_response,
             log_invalid_response_body=self.settings.jira_log_invalid_response_body,
             log_field_catalog=self.settings.jira_log_field_catalog,
             log_employee_issue=self.settings.jira_log_employee_issue,
@@ -120,38 +234,34 @@ class CuratorService:
             for issue in issues
         ]
 
-    async def field_catalog(self, state: SessionState) -> dict[str, Any]:
-        metadata_warnings: list[str] = []
-        try:
-            async with self.jira(state) as jira:
-                fields = await jira.fields()
-        except CuratorError as exc:
-            if exc.code not in {"JIRA_HTTP_403", "JIRA_HTTP_404"}:
-                raise
-            fields = []
-            metadata_warnings.append(
-                "Каталог полей Jira недоступен. Используйте сохранённые идентификаторы или обратитесь к администратору."
-            )
-        safe_fields = [{"id": item.get("id"), "name": item.get("name")} for item in fields if item.get("id") and item.get("name")]
-        return {"fields": safe_fields, "mapping": state.mapping.model_dump(), "warnings": metadata_warnings + self.mapping_warnings(state.mapping)}
-
-    @staticmethod
-    def mapping_warnings(mapping: FieldMapping) -> list[str]:
-        return [f"Поле «{name}» не сопоставлено; будет использовано null." for name, value in mapping.model_dump().items() if not value]
-
     async def load_employee(self, state: SessionState, key: str, include_display_name: bool = False) -> dict[str, Any]:
         safe_key = validate_employee_key(key)
         mapping_fields = [value for value in state.mapping.model_dump().values() if value]
-        base_fields = (
-            ["*all"]
-            if self.settings.jira_log_employee_issue
-            else ["summary", "status", "issuetype", *mapping_fields]
+        employee_fields = sorted(set(["summary", "status", "issuetype", *mapping_fields]))
+        child_fields = sorted(
+            set(
+                [
+                    "summary",
+                    "status",
+                    "created",
+                    "updated",
+                    "issuetype",
+                    "description",
+                    "customfield_11418",
+                    *MM_FIELDS.values(),
+                    *([state.mapping.feedback_comments] if state.mapping.feedback_comments else []),
+                ]
+            )
         )
         async with self.jira(state) as jira:
-            employee = await jira.employee_issue(safe_key, sorted(set(base_fields)))
+            employee = await jira.employee_issue(safe_key, employee_fields)
             optional = await asyncio.gather(
-                jira.comments(safe_key, page_size=self.settings.jira_page_size, max_pages=self.settings.jira_max_pages),
-                jira.child_issues(safe_key, page_size=self.settings.jira_page_size),
+                jira.comments(safe_key, limit=self.settings.jira_max_comments),
+                jira.child_issues(
+                    safe_key,
+                    fields=child_fields,
+                    page_size=self.settings.jira_page_size,
+                ),
                 return_exceptions=True,
             )
         optional_warnings: list[str] = []
@@ -178,7 +288,7 @@ class CuratorService:
             mood_issue_type_names=self.settings.mood_issue_type_names,
             feedback_issue_type_names=self.settings.feedback_issue_type_names,
         )
-        context.context_selection.warnings.extend(self.mapping_warnings(state.mapping) + optional_warnings)
+        context.context_selection.warnings.extend(optional_warnings)
         state.context = context
         state.selected_key = safe_key
         preview = context.model_copy(deep=True)
@@ -189,30 +299,188 @@ class CuratorService:
     async def generate(self, state: SessionState, generation_id: str, excluded_refs: set[str], include_display_name: bool) -> dict[str, Any]:
         if state.context is None:
             raise CuratorError("CONTEXT_REQUIRED", "Сначала загрузите и проверьте данные сотрудника.", 409)
-        context = apply_exclusions(state.context, excluded_refs)
-        if not include_display_name:
-            context.employee.display_name = None
-        context_dict = context.model_dump(mode="json")
-        cancel_event = asyncio.Event()
-        state.cancel_events[generation_id] = cancel_event
-        messages = build_messages(context_dict, self.system_prompt)
+        runtime = self.runtime
+        llm = self.llm
+        preparation_started = time.monotonic()
         try:
+            context = apply_exclusions(state.context, excluded_refs)
+            # External mode always removes the name, but keeps it locally long
+            # enough to add it to the deterministic per-request dictionary.
+            if not include_display_name and self.privacy_filter is None:
+                context.employee.display_name = None
+            validation_context_dict = context.model_dump(mode="json")
+            cancel_event = asyncio.Event()
+            state.cancel_events[generation_id] = cancel_event
+        finally:
+            logger.info(
+                "llm_data_preparation_completed",
+                extra={"duration_ms": round((time.monotonic() - preparation_started) * 1000)},
+            )
+        try:
+            if self.generation_limit.locked():
+                raise CuratorError(
+                    "LLM_BUSY",
+                    "Другая генерация ещё выполняется. Отмените её или дождитесь завершения.",
+                    409,
+                )
             async with self.generation_limit:
-                raw_result = await self.llm.generate(messages, self.model_schema, cancel_event)
+                privacy_session: PrivacyFilterSession | None = None
+                if self.privacy_filter is not None:
+                    privacy_session = await self.privacy_filter.sanitize_context(
+                        context, cancel_event
+                    )
+                    context = privacy_session.context
+                context = await self._extract_comment_context(context, cancel_event)
+                context_dict = context.model_dump(mode="json")
+                messages = build_messages(context_dict, self.system_prompt)
+                model_started = time.monotonic()
                 try:
-                    finalized_result = finalize_computed_fields(raw_result, context_dict)
-                    return validate_result(finalized_result, context_dict, self.schema)
+                    raw_result = await llm.generate(messages, self.model_schema, cancel_event)
+                finally:
+                    logger.info(
+                        "llm_model_response_completed",
+                        extra={
+                            "operation": "generate",
+                            "runtime": runtime,
+                            "duration_ms": round((time.monotonic() - model_started) * 1000),
+                        },
+                    )
+                try:
+                    validation_result = self._restore_external_source_refs(
+                        raw_result, privacy_session
+                    )
+                    return self._finalize_and_validate(
+                        validation_result,
+                        validation_context_dict,
+                        operation="generate",
+                    )
                 except CuratorError as first_error:
                     if not self.settings.llm_repair_enabled:
                         raise first_error
-                    repair = getattr(self.llm, "repair", None)
+                    repair = getattr(llm, "repair", None)
                     if repair is None:
                         raise first_error
-                    repaired_result = await repair(messages, raw_result, self.model_schema, cancel_event)
-                    finalized_repair = finalize_computed_fields(repaired_result, context_dict)
-                    return validate_result(finalized_repair, context_dict, self.schema)
+                    model_started = time.monotonic()
+                    try:
+                        repaired_result = await repair(messages, raw_result, self.model_schema, cancel_event)
+                    finally:
+                        logger.info(
+                            "llm_model_response_completed",
+                            extra={
+                                "operation": "repair",
+                                "runtime": runtime,
+                                "duration_ms": round((time.monotonic() - model_started) * 1000),
+                            },
+                        )
+                    validation_result = self._restore_external_source_refs(
+                        repaired_result, privacy_session
+                    )
+                    return self._finalize_and_validate(
+                        validation_result,
+                        validation_context_dict,
+                        operation="repair",
+                    )
         finally:
             state.cancel_events.pop(generation_id, None)
+
+    def _restore_external_source_refs(
+        self,
+        result: dict[str, Any],
+        privacy_session: PrivacyFilterSession | None,
+    ) -> dict[str, Any]:
+        if self.privacy_filter is None or privacy_session is None:
+            return result
+        restored = self.privacy_filter.restore_source_refs(result, privacy_session)
+        if not isinstance(restored, dict):
+            raise CuratorError(
+                "LLM_SCHEMA_INVALID", "Модель вернула объект неизвестного формата.", 502
+            )
+        return restored
+
+    async def _extract_comment_context(self, context: Any, cancel_event: asyncio.Event) -> Any:
+        extractor = getattr(self.llm, "extract_comment_events", None)
+        if not callable(extractor) or not context.interactions:
+            return context
+
+        batches = split_comment_batches(
+            context.interactions,
+            max_items=self.settings.llm_comment_batch_size,
+            max_chars=self.settings.llm_comment_batch_chars,
+        )
+        transformed = []
+        fallback_count = 0
+        for batch in batches:
+            extraction_started = time.monotonic()
+            try:
+                source_refs = [item.source_ref for item in batch]
+                messages = build_comment_extraction_messages(
+                    batch, self.comment_extraction_prompt
+                )
+                result = await extractor(
+                    messages,
+                    comment_extraction_schema(source_refs),
+                    cancel_event,
+                )
+                processed, extracted_count = apply_comment_extraction(batch, result)
+            except CuratorError as exc:
+                if exc.code == "GENERATION_CANCELLED":
+                    raise
+                logger.warning("comment_extraction_failed", extra={"code": exc.code})
+                processed = [item.model_copy(deep=True) for item in batch]
+                extracted_count = 0
+            finally:
+                logger.info(
+                    "llm_model_response_completed",
+                    extra={
+                        "operation": "comment_extraction",
+                        "runtime": self.runtime,
+                        "duration_ms": round(
+                            (time.monotonic() - extraction_started) * 1000
+                        ),
+                    },
+                )
+            transformed.extend(processed)
+            fallback_count += len(batch) - extracted_count
+
+        prepared = context.model_copy(deep=True)
+        prepared.interactions = transformed
+        if fallback_count:
+            prepared.context_selection.warnings.append(
+                f"Для {fallback_count} комментариев предварительное извлечение событий "
+                "не выполнено; итоговая модель получила их очищенный исходный текст."
+            )
+        return prepared
+
+    def _finalize_and_validate(
+        self,
+        raw_result: dict[str, Any],
+        context: dict[str, Any],
+        *,
+        operation: str,
+    ) -> dict[str, Any]:
+        postprocessing_started = time.monotonic()
+        try:
+            finalized_result = finalize_computed_fields(raw_result, context)
+        finally:
+            logger.info(
+                "llm_postprocessing_completed",
+                extra={
+                    "operation": operation,
+                    "duration_ms": round((time.monotonic() - postprocessing_started) * 1000),
+                },
+            )
+
+        validation_started = time.monotonic()
+        try:
+            return validate_result(finalized_result, context, self.schema)
+        finally:
+            logger.info(
+                "llm_validation_completed",
+                extra={
+                    "operation": operation,
+                    "duration_ms": round((time.monotonic() - validation_started) * 1000),
+                },
+            )
 
     def cancel(self, state: SessionState, generation_id: str) -> bool:
         event = state.cancel_events.get(generation_id)
@@ -256,7 +524,7 @@ def markdown_export(result: dict[str, Any]) -> str:
                 f"Источники: {evidence(item['evidence'])}."
             )
     lines.extend(["", "## 2. Идеи для начала разговора", ""])
-    lines.extend(f"- {safe(item['phrase'])} — {safe(item['basis'])}" for item in result["conversation_openers"])
+    lines.extend(f"- {safe(item['phrase'])}" for item in result["conversation_openers"])
     lines.extend(["", "## 3. Приоритеты встречи", ""])
     lines.extend(
         f"{item['priority']}. **{safe(item['topic'])}** — {safe(item['why_now'])}. Источники: {evidence(item['evidence'])}."

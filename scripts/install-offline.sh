@@ -8,6 +8,5 @@ mkdir -p secrets certs
 umask 077
 test -s secrets/hmac_key || { openssl rand -hex 32 > secrets/hmac_key; }
 cp .env.example .env 2>/dev/null || true
-docker compose up -d
+docker compose --profile llama up -d
 echo "Откройте http://127.0.0.1:8080"
-

@@ -50,8 +50,7 @@
     },
     "conversation_openers": {
       "type": "array", "minItems": 3, "maxItems": 3,
-      "items": {"type": "object", "additionalProperties": false, "required": ["basis", "phrase"], "properties": {
-        "basis": {"type": "string", "minLength": 1, "maxLength": 500},
+      "items": {"type": "object", "additionalProperties": false, "required": ["phrase"], "properties": {
         "phrase": {"type": "string", "minLength": 1, "maxLength": 500}
       }}
     },
