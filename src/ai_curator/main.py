@@ -133,6 +133,17 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
     async def load_employee(request: Request, key: str, include_display_name: bool = False):
         return await curator.load_employee(state(request), key, include_display_name)
 
+    @app.get("/api/context")
+    async def current_context(request: Request):
+        session = state(request)
+        if session.context is None:
+            raise CuratorError(
+                "CONTEXT_REQUIRED",
+                "Контекст не найден. Выберите сотрудника заново.",
+                409,
+            )
+        return session.context
+
     def generation_job(session, generation_id: str) -> GenerationJob:
         job = session.generation_jobs.get(generation_id)
         if job is None:

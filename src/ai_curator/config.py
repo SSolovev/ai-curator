@@ -37,8 +37,7 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=6000, ge=1000, le=16_000)
     llm_reasoning_effort: Literal["none", "low", "medium", "high"] = "none"
-    llm_comment_batch_size: int = Field(default=10, ge=1, le=10)
-    llm_comment_batch_chars: int = Field(default=24_000, ge=4000, le=80_000)
+    llm_comment_batch_chars: int = Field(default=20_000, ge=4000, le=80_000)
     llm_repair_enabled: bool = False
     llm_log_request_response: bool = False
     jira_connect_timeout_seconds: float = 8.0

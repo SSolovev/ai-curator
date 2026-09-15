@@ -8,13 +8,13 @@ from ai_curator.comment_analysis import (
 )
 
 
-def test_comment_batches_respect_item_and_character_limits(normalized, tmp_path):
+def test_comment_batches_only_respect_character_limit(normalized, tmp_path):
     interactions = normalized.interactions[:5]
-    batches = split_comment_batches(interactions, max_items=2, max_chars=10_000)
-    assert [len(batch) for batch in batches] == [2, 2, 1]
+    batches = split_comment_batches(interactions, max_chars=10_000)
+    assert [len(batch) for batch in batches] == [5]
 
     long_items = [item.model_copy(update={"text": "x" * 3000}) for item in interactions[:3]]
-    character_batches = split_comment_batches(long_items, max_items=10, max_chars=4000)
+    character_batches = split_comment_batches(long_items, max_chars=4000)
     assert [len(batch) for batch in character_batches] == [1, 1, 1]
 
 

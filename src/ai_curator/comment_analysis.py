@@ -70,14 +70,14 @@ def build_comment_extraction_messages(
 
 
 def split_comment_batches(
-    interactions: list[Interaction], *, max_items: int, max_chars: int
+    interactions: list[Interaction], *, max_chars: int
 ) -> list[list[Interaction]]:
     batches: list[list[Interaction]] = []
     current: list[Interaction] = []
     current_chars = 0
     for interaction in interactions:
         text_chars = len(interaction.text)
-        if current and (len(current) >= max_items or current_chars + text_chars > max_chars):
+        if current and current_chars + text_chars > max_chars:
             batches.append(current)
             current = []
             current_chars = 0

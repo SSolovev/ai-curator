@@ -122,7 +122,9 @@ def test_actual_mock_jira_api_to_normalization_and_model(mapping, valid_result, 
         "Интервьюирование",
     ]
     assert len(context.mood_monitoring) == 3
-    assert len(context.interactions) == 50
+    assert 11 <= len(context.interactions) <= 17
+    assert len(context.interactions) == 15
+    assert any(item.type == "MM" for item in context.interactions)
     assert "Алексей Андреевич Демов" not in llm.received[1]["content"]
     assert output["agenda"][-1]["end_minute"] == 30
 

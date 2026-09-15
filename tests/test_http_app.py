@@ -43,10 +43,11 @@ class HTTPFakeService:
         ]
 
     async def load_employee(self, state, key, include_display_name):
-        return {
+        state.context = {
             "employee": {"jira_key": key, "display_name": None},
             "context_selection": {"warnings": []},
         }
+        return state.context
 
     async def generate(self, state, generation_id, excluded, include_display_name):
         return copy.deepcopy(self.result)
@@ -130,7 +131,12 @@ def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
         assert "/api/mapping" not in app_js.text
         assert "/status" in app_js.text
         assert "/result" in app_js.text
+        assert "await api('/api/context')" in app_js.text
         assert "sessionStorage.setItem(generationStorageKey" in app_js.text
+        assert "trackGeneration(pending,Date.now())" not in app_js.text
+        assert "serverElapsedSeconds=Number(initialElapsedSeconds)||0" in app_js.text
+        assert "syncElapsed(job)" in app_js.text
+        assert "generationUnavailable=x.code==='GENERATION_NOT_FOUND'" in app_js.text
         assert index.headers["X-Frame-Options"] == "DENY"
         assert "default-src 'self'" in index.headers["Content-Security-Policy"]
         rejected = client.post(
@@ -149,6 +155,16 @@ def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
         employees = client.get("/api/employees?page=1&page_size=20")
         assert employees.status_code == 200
         assert employees.json()["total"] == 1
+        assert client.get("/api/context").status_code == 409
+        loaded_context = client.post(
+            "/api/employees/EMP-1/load?include_display_name=false",
+            headers={"X-CSRF-Token": csrf},
+            json={},
+        )
+        assert loaded_context.status_code == 200
+        restored_context = client.get("/api/context")
+        assert restored_context.status_code == 200
+        assert restored_context.json() == loaded_context.json()
         assert client.get("/api/fields").status_code == 404
         assert client.put(
             "/api/mapping",

@@ -16,21 +16,23 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function selectJiraSource(){const mode=$('#jira-source').value,source=jiraSources[mode],url=$('#jira-base-url'),token=$('#connect-form [name="token"]');url.value=source.url;url.readOnly=mode!=="custom";url.placeholder=mode==="custom"?"https://jira.company.local":"";token.value="";token.disabled=mode==="demo";token.placeholder=source.tokenPlaceholder;$('#jira-source-hint').textContent=source.hint;if(mode==="custom")url.focus()}
 function renderModelDiagnostics(data,showDetails=true){currentRuntime=data.runtime;const external=data.runtime==='external';$('#model-runtime').textContent=data.runtime_label;$('#privacy').textContent=external?'Контекст обезличивается локально перед отправкой во внешнюю LLM':'Данные остаются на этом устройстве';$('#model-context-title').textContent=external?'Что будет обезличено перед внешней моделью':'Что увидит локальная модель';const name=$('#include-name'),nameLabel=$('#include-name-label span');name.disabled=external;if(external)name.checked=false;nameLabel.textContent=external?'Имя всегда скрывается во внешнем режиме':'Передать модели отображаемое имя';const filterOk=!external||Boolean(data.privacy_filter?.health?.ok),ok=Boolean(data.health?.ok)&&filterOk,status=$('#model-status');status.textContent=ok?`Готова · ${data.configured_model}`:`Недоступна · ${data.configured_model}`;status.className=`model-status ${ok?'ok':'error'}`;if(showDetails)$('#diagnostic-result').textContent=JSON.stringify(data,null,2)}
 async function refreshModelDiagnostics(showDetails=true){try{const data=await api('/api/model/diagnostics');renderModelDiagnostics(data,showDetails);return data}catch(x){const status=$('#model-status');status.textContent='Диагностика недоступна';status.className='model-status error';if(showDetails)$('#diagnostic-result').textContent=x.message;return null}}
-document.addEventListener("DOMContentLoaded",async()=>{csrf=(await fetch('/api/session').then(r=>r.json())).csrf_token;$$('.step').forEach(b=>b.onclick=()=>show(b.dataset.target));$('#jira-source').onchange=selectJiraSource;selectJiraSource();await refreshModelDiagnostics(false);const pending=sessionStorage.getItem(generationStorageKey);if(pending){show('preview');void trackGeneration(pending,Date.now())}});
+document.addEventListener("DOMContentLoaded",async()=>{csrf=(await fetch('/api/session').then(r=>r.json())).csrf_token;$$('.step').forEach(b=>b.onclick=()=>show(b.dataset.target));$('#jira-source').onchange=selectJiraSource;selectJiraSource();await refreshModelDiagnostics(false);const pending=sessionStorage.getItem(generationStorageKey);if(pending){show('preview');await restoreContext();void trackGeneration(pending)}});
 $('#connect-form').onsubmit=async e=>{e.preventDefault();const mode=$('#jira-source').value,f=new FormData(e.target),body=Object.fromEntries(f);body.token=mode==='demo'?'demo-token':(body.token||'');for(const k of ['ca_bundle_path','proxy_url'])if(!body[k])body[k]=null;try{await api('/api/connect',{method:'POST',body:JSON.stringify(body)});e.target.token.value='';notice(mode==='demo'?'Демо Jira подключена. Все данные в ней вымышлены.':'Подключение к Jira проверено. Токен хранится только в памяти сессии.');show('people');await searchEmployees()}catch(x){notice(x.message,true)}};
 async function searchEmployees(){try{const q=encodeURIComponent($('#employee-search').value),b=$('#billable').checked;const d=await api(`/api/employees?q=${q}&billable_only=${b}&page=${employeePage}&page_size=20`);employeeHasNext=d.has_next;$('#employees-page').textContent=`Страница ${d.page} · найдено ${d.total}`;$('#employees-prev').disabled=employeePage<=1;$('#employees-next').disabled=!employeeHasNext;$('#employees').innerHTML=d.items.map(x=>`<div class="employee-card"><div><b>${esc(x.summary||'Без названия')}</b><br><small>${esc(x.key)} · ${esc(x.status||'Статус не указан')}</small></div><button data-key="${esc(x.key)}">Выбрать</button></div>`).join('')||'<p>Доступные Employee-задачи не найдены.</p>';$$('[data-key]').forEach(b=>b.onclick=()=>loadEmployee(b.dataset.key))}catch(x){notice(x.message,true)}}
 $('#search-button').onclick=()=>{employeePage=1;searchEmployees()};$('#employees-prev').onclick=()=>{if(employeePage>1){employeePage--;searchEmployees()}};$('#employees-next').onclick=()=>{if(employeeHasNext){employeePage++;searchEmployees()}};$('#load-key').onclick=()=>loadEmployee($('#employee-key').value);
 async function loadEmployee(key){try{currentContext=await api(`/api/employees/${encodeURIComponent(key)}/load?include_display_name=false`,{method:'POST',body:'{}'});renderContext();show('preview');notice('Контекст загружен с использованием настроенного сопоставления полей.')}catch(x){notice(x.message,true)}}
+async function restoreContext(){try{currentContext=await api('/api/context');renderContext()}catch(x){$('#context-summary').textContent=x.message;$('#records').innerHTML='<p>Серверный контекст недоступен. Если генерация ещё выполняется, дождитесь итогового статуса.</p>'}}
 function record(item,kind){const text=item.text||item.comment||Object.entries(item.scores||{}).filter(x=>x[1]!=null).map(x=>`${x[0]}: ${x[1]}`).join(', ');return `<div class="record"><label><input class="record-check" type="checkbox" checked value="${esc(item.source_ref)}"><b>${esc(kind)} · ${esc(item.date||'дата не указана')} · ${esc(item.type||item.period||'')}</b></label><p>${esc(text||'Без текстового комментария')}</p><small>${esc(item.source_ref)}</small></div>`}
 function renderContext(){const c=currentContext;c.employee.display_name=null;$('#context-summary').innerHTML=`<p><b>${esc(c.employee.jira_key)}</b> · ${esc(c.employee.role||'роль не сопоставлена')} · ${esc(c.employee.status||'статус не указан')}</p>${c.context_selection.warnings.map(w=>`<p class="warning">${esc(w)}</p>`).join('')}`;$('#records').innerHTML=[...c.mood_monitoring.map(x=>record(x,'Mood Monitoring')),...c.incomplete_mood_monitoring.map(x=>record(x,'Незавершённый MM')),...c.interactions.map(x=>record(x,'Взаимодействие')),...c.feedback.map(x=>record(x,'Feedback'))].join('')||'<p>Содержательных записей для анализа нет.</p>'}
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function waitForGeneration(generationId){
+async function waitForGeneration(generationId,onStatus){
   let networkFailures=0;
   while(currentGeneration===generationId){
     let job;
     try{
       job=await api(`/api/generate/${generationId}/status`);
-      networkFailures=0
+      networkFailures=0;
+      onStatus(job)
     }catch(x){
       if(x.message==='Failed to fetch'&&networkFailures++<generationPollNetworkRetries){await wait(generationPollIntervalMs);continue}
       throw x
@@ -52,41 +54,47 @@ async function waitForGeneration(generationId){
   }
   throw new Error('Генерация отменена.')
 }
-async function trackGeneration(generationId,started){
+async function trackGeneration(generationId,initialElapsedSeconds=0){
   currentGeneration=generationId;
   sessionStorage.setItem(generationStorageKey,generationId);
-  const runtime=currentRuntime,elapsedSeconds=()=>((Date.now()-started)/1000).toFixed(1);
+  let generationUnavailable=false;
+  const runtime=currentRuntime;
+  let serverElapsedSeconds=Number(initialElapsedSeconds)||0,elapsedSyncedAt=Date.now();
+  const syncElapsed=job=>{serverElapsedSeconds=Number(job.elapsed_seconds)||0;elapsedSyncedAt=Date.now()};
+  const elapsedSeconds=()=>serverElapsedSeconds+(Date.now()-elapsedSyncedAt)/1000;
+  const renderProgress=()=>{$('#notice').textContent=`${runtimeNames[runtime]} готовит сценарий… ${Math.floor(elapsedSeconds())} с`};
   $('#generate').disabled=true;
   $('#cancel').classList.remove('hidden');
-  notice(`${runtimeNames[runtime]} готовит сценарий…`);
-  const ticker=setInterval(()=>{$('#notice').textContent=`${runtimeNames[runtime]} готовит сценарий… ${Math.floor((Date.now()-started)/1000)} с`},1000);
+  notice(`${runtimeNames[runtime]} готовит сценарий… ${Math.floor(elapsedSeconds())} с`);
+  const ticker=setInterval(renderProgress,1000);
   try{
-    const completed=await waitForGeneration(generationId);
+    const completed=await waitForGeneration(generationId,job=>{syncElapsed(job);renderProgress()});
     currentResult=completed.result;
     renderResult();
     show('result');
     hideNotice();
     generationResultNotice(`Сценарий готов за ${completed.elapsedSeconds.toFixed(1)} с. Проверьте вывод и раскройте источники.`)
   }catch(x){
-    const duration=Number.isFinite(x.elapsedSeconds)?x.elapsedSeconds.toFixed(1):elapsedSeconds();
+    generationUnavailable=x.code==='GENERATION_NOT_FOUND';
+    const duration=Number.isFinite(x.elapsedSeconds)?x.elapsedSeconds.toFixed(1):elapsedSeconds().toFixed(1);
     notice(`${x.message} Формирование завершилось с ошибкой за ${duration} с.`,true)
   }finally{
     clearInterval(ticker);
     $('#generate').disabled=false;
     $('#cancel').classList.add('hidden');
     if(currentGeneration===generationId)currentGeneration=null;
-    if(sessionStorage.getItem(generationStorageKey)===generationId)sessionStorage.removeItem(generationStorageKey)
+    if(generationUnavailable&&sessionStorage.getItem(generationStorageKey)===generationId)sessionStorage.removeItem(generationStorageKey)
   }
 }
 $('#generate').onclick=async()=>{
-  const excluded=$$('.record-check:not(:checked)').map(x=>x.value),runtime=currentRuntime,started=Date.now();
+  const excluded=$$('.record-check:not(:checked)').map(x=>x.value),runtime=currentRuntime;
   generationResultNotice();
   $('#generate').disabled=true;
   $('#cancel').classList.remove('hidden');
   notice(`${runtimeNames[runtime]} готовит сценарий…`);
   try{
     const job=await api('/api/generate',{method:'POST',body:JSON.stringify({excluded_source_refs:excluded,include_display_name:$('#include-name').checked})});
-    await trackGeneration(job.generation_id,started)
+    await trackGeneration(job.generation_id,job.elapsed_seconds)
   }catch(x){
     notice(`${x.message} Формирование не запущено.`,true)
   }finally{

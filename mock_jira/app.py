@@ -12,6 +12,7 @@ from ai_curator.domain import FieldMapping
 DATA = json.loads((Path(__file__).parents[1] / "tests/fixtures/golden_jira.json").read_text(encoding="utf-8"))
 app = FastAPI(title="Mock Jira", docs_url=None, redoc_url=None)
 DEFAULT_MAPPING = FieldMapping()
+DEMO_COMMENT_COUNT = 15
 MAPPED_FIELD_IDS = frozenset(
     field_id for field_id in DEFAULT_MAPPING.model_dump().values() if field_id
 )
@@ -64,9 +65,9 @@ def requested_issue_fields(issue: dict, fields: str) -> dict:
 
 
 def demo_comments() -> list[dict]:
-    """Return 50 deterministic, synthetic comments with Jira-like payloads."""
+    """Return 15 deterministic comments, including Mood Monitoring entries."""
     comments = deepcopy(DATA["comments"])
-    archive_count = max(0, 50 - len(comments))
+    archive_count = max(0, DEMO_COMMENT_COUNT - len(comments))
     for index in range(archive_count):
         year = 2021 + index // 12
         month = index % 12 + 1
@@ -91,7 +92,7 @@ def demo_comments() -> list[dict]:
                 "visibility": {"type": "role", "value": "Curators"},
             }
         )
-    return comments
+    return comments[:DEMO_COMMENT_COUNT]
 
 
 @app.get("/healthz")

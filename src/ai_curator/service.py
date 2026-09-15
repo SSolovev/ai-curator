@@ -404,7 +404,6 @@ class CuratorService:
 
         batches = split_comment_batches(
             context.interactions,
-            max_items=self.settings.llm_comment_batch_size,
             max_chars=self.settings.llm_comment_batch_chars,
         )
         transformed = []

@@ -26,8 +26,7 @@
 | `CURATOR_LLM_TEMPERATURE` | `0.2` | детерминированность и фактологическая устойчивость генерации |
 | `CURATOR_LLM_MAX_TOKENS` | `6000` | общий предел thinking и финального ответа |
 | `CURATOR_LLM_REASONING_EFFORT` | `none` | thinking-профиль Ollama: `none`, `low`, `medium`, `high`; для Gemma 4 по умолчанию отключён, чтобы reasoning не исчерпывал лимит ответа |
-| `CURATOR_LLM_COMMENT_BATCH_SIZE` | `10` | максимум комментариев в одной партии извлечения событий |
-| `CURATOR_LLM_COMMENT_BATCH_CHARS` | `24000` | дополнительный text budget партии извлечения |
+| `CURATOR_LLM_COMMENT_BATCH_CHARS` | `20000` | text budget партии извлечения; лимита количества комментариев нет |
 | `CURATOR_LLM_REPAIR_ENABLED` | `false` | повторная полная генерация после ошибки валидации |
 | `CURATOR_LLM_LOG_REQUEST_RESPONSE` | `false` | временно логировать полный запрос и ответ локальной модели |
 | `CURATOR_JIRA_LOG_REQUEST_RESPONSE` | `false` | временно логировать полный запрос и ответ Jira без маскирования значений |
