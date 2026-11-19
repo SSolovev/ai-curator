@@ -88,10 +88,12 @@ class CapturingValidLlm(NeverCalledExternalLlm):
         super().__init__()
         self.result = result
         self.messages = []
+        self.schema = None
 
     async def generate(self, messages, schema, cancel_event):
         self.calls += 1
         self.messages = messages
+        self.schema = schema
         return json.loads(json.dumps(self.result, ensure_ascii=False))
 
 
@@ -336,6 +338,12 @@ def test_service_sends_only_sanitized_messages_to_every_runtime(
         assert forbidden not in outbound
     assert "SRC-" in outbound
     assert "[PII_PERSON]" in outbound
+    context_json = main_llm.messages[1]["content"].split("<employee_context>\n", 1)[1]
+    sent_context = json.loads(context_json.split("\n</employee_context>", 1)[0])
+    ref_schema = main_llm.schema["$defs"]["evidence"]["properties"]["source_ref"]
+    assert ref_schema["enum"] == sorted(sent_context["context_selection"]["included_source_refs"])
+    assert all(ref.startswith("SRC-") for ref in ref_schema["enum"])
+    assert "enum" not in service.model_schema["$defs"]["evidence"]["properties"]["source_ref"]
     assert result["agenda"][-1]["end_minute"] == 30
 
 

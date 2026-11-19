@@ -43,6 +43,17 @@ def all_source_refs(context: dict[str, Any]) -> set[str]:
     return refs
 
 
+def model_schema_for_context(schema: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+    """Limit citations to the source identifiers sent to the model."""
+    refs = sorted(all_source_refs(context))
+    if not refs:
+        return schema
+
+    request_schema = deepcopy(schema)
+    request_schema["$defs"]["evidence"]["properties"]["source_ref"]["enum"] = refs
+    return request_schema
+
+
 def source_dates(context: dict[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
     for section in SOURCE_SECTIONS:

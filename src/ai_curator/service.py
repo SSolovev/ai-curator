@@ -27,7 +27,12 @@ from .privacy_filter import PersonalDataFilter, PrivacyFilterSession, build_priv
 from .prompting import build_messages
 from .security import read_secret_file
 from .session import SessionState
-from .validation import finalize_computed_fields, load_model_schema, validate_result
+from .validation import (
+    finalize_computed_fields,
+    load_model_schema,
+    model_schema_for_context,
+    validate_result,
+)
 
 logger = logging.getLogger("ai_curator.generation")
 
@@ -54,9 +59,6 @@ class CuratorService:
     ):
         self.settings = settings
         self.model_schema = load_model_schema(root / "schemas/one_on_one.response.schema.v1.json")
-        self.model_schema_chars = len(
-            json.dumps(self.model_schema, ensure_ascii=False, separators=(",", ":"))
-        )
         self.system_prompt = root / "prompts/one_on_one.system.txt"
         self.comment_extraction_prompt = root / "prompts/comment_extraction.system.txt"
         self.runtime = settings.llm_runtime
@@ -281,10 +283,11 @@ class CuratorService:
     ) -> dict[str, Any]:
         privacy_session = await self.privacy_filter.sanitize_context(context, cancel_event)
         sanitized = privacy_session.context
-        messages = build_messages(sanitized.model_dump(mode="json"), self.system_prompt)
-        prompt_chars = (
-            sum(len(message["content"]) for message in messages) + self.model_schema_chars
-        )
+        sanitized_data = sanitized.model_dump(mode="json")
+        model_schema = model_schema_for_context(self.model_schema, sanitized_data)
+        messages = build_messages(sanitized_data, self.system_prompt)
+        schema_chars = len(json.dumps(model_schema, ensure_ascii=False, separators=(",", ":")))
+        prompt_chars = sum(len(message["content"]) for message in messages) + schema_chars
         direct_prompt_limit = (
             self.settings.external_llm_direct_prompt_chars
             if self.runtime == "external"
@@ -297,7 +300,7 @@ class CuratorService:
         with log_duration(
             "llm_model_response_completed", operation="generate", runtime=self.runtime
         ):
-            raw_result = await self.llm.generate(messages, self.model_schema, cancel_event)
+            raw_result = await self.llm.generate(messages, model_schema, cancel_event)
 
         try:
             return self._finalize_result(
@@ -309,7 +312,7 @@ class CuratorService:
                 raise
 
         with log_duration("llm_model_response_completed", operation="repair", runtime=self.runtime):
-            repaired_result = await repair(messages, raw_result, self.model_schema, cancel_event)
+            repaired_result = await repair(messages, raw_result, model_schema, cancel_event)
         return self._finalize_result(repaired_result, privacy_session, validation_context, "repair")
 
     async def _extract_comment_context(
