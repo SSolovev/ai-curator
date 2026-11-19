@@ -1,6 +1,6 @@
 # Внешняя LLM и локальное обезличивание
 
-Режим `external` предназначен для OpenAI Chat Completions API и совместимых с ним HTTPS-сервисов. Он выключен по умолчанию и требует отдельного разрешения вашей организации на передачу обезличенных рабочих данных внешнему поставщику.
+Режим `external` предназначен для OpenAI Chat Completions API и совместимых с ним HTTPS-сервисов. Он выключен по умолчанию и требует отдельного разрешения вашей организации на передачу обезличенных рабочих данных внешнему поставщику. Описанный ниже privacy-конвейер является общим и обязательным также для `llama_cpp` и локальной основной модели Ollama.
 
 Подписка ChatGPT в браузере не используется: приложению нужен отдельный API-ключ. Ключ передаётся API в заголовке Bearer и хранится только в локальном secret-файле. Формат ответа ограничивается строгой JSON Schema через `response_format`. См. официальные документы OpenAI: [API authentication](https://developers.openai.com/api/reference/overview) и [Chat Completions / Structured Outputs](https://developers.openai.com/api/reference/resources/chat).
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from copy import deepcopy
@@ -18,7 +19,7 @@ from .comment_analysis import (
 from .config import Settings
 from .domain import FieldMapping, ModelRuntime
 from .errors import CuratorError
-from .external_llm import build_external_runtime
+from .external_llm import build_external_runtime, build_privacy_filter
 from .jira import JiraClient, JiraTransportConfig, validate_employee_key
 from .llm import LlamaCppClient, LocalLLM, OllamaClient
 from .normalization import MM_FIELDS, apply_exclusions, normalize_bundle
@@ -134,10 +135,13 @@ class CuratorService:
         self.runtime: ModelRuntime = settings.llm_runtime
         self.privacy_filter = privacy_filter
         if llm is not None:
-            if self.runtime == "external" and self.privacy_filter is None:
-                raise ValueError("external runtime cannot be constructed without a privacy filter")
+            if self.privacy_filter is None:
+                raise ValueError("a main runtime cannot be constructed without a privacy filter")
             self.llm = llm
         elif self.runtime == "llama_cpp":
+            self.privacy_filter = self.privacy_filter or build_privacy_filter(
+                settings, root
+            )
             self.llm = LlamaCppClient(
                 settings.llm_base_url,
                 settings.llm_model,
@@ -147,6 +151,9 @@ class CuratorService:
                 log_request_response=settings.llm_log_request_response,
             )
         elif self.runtime == "ollama":
+            self.privacy_filter = self.privacy_filter or build_privacy_filter(
+                settings, root
+            )
             self.llm = OllamaClient(
                 settings.ollama_base_url,
                 settings.ollama_model,
@@ -157,9 +164,11 @@ class CuratorService:
                 log_request_response=settings.llm_log_request_response,
             )
         else:
-            external = build_external_runtime(settings, root)
+            external = build_external_runtime(settings, root, self.privacy_filter)
             self.llm = external.llm
             self.privacy_filter = external.privacy_filter
+        if self.privacy_filter is None:  # pragma: no cover - constructor invariant
+            raise RuntimeError("privacy filter initialization failed")
         self.generation_limit = asyncio.Semaphore(1)
 
     async def model_diagnostics(self) -> dict[str, Any]:
@@ -181,14 +190,14 @@ class CuratorService:
             "health": health,
             "contains_personal_data": False,
         }
-        if self.privacy_filter is not None:
-            diagnostics["privacy_filter"] = {
-                "enabled": True,
-                "model": self.settings.pii_filter_model,
-                "health": await self.privacy_filter.health(),
-                "dictionary_filter": True,
-                "fail_closed": True,
-            }
+        diagnostics["privacy_filter"] = {
+            "enabled": True,
+            "required_for_all_runtimes": True,
+            "model": self.settings.pii_filter_model,
+            "health": await self.privacy_filter.health(),
+            "dictionary_filter": True,
+            "fail_closed": True,
+        }
         return diagnostics
 
     def jira(self, state: SessionState) -> JiraClient:
@@ -304,10 +313,9 @@ class CuratorService:
         preparation_started = time.monotonic()
         try:
             context = apply_exclusions(state.context, excluded_refs)
-            # External mode always removes the name, but keeps it locally long
-            # enough to add it to the deterministic per-request dictionary.
-            if not include_display_name and self.privacy_filter is None:
-                context.employee.display_name = None
+            # Every runtime keeps the raw name local only long enough to add it
+            # to the deterministic per-request dictionary. The privacy filter
+            # always replaces it before the main model receives the context.
             validation_context_dict = context.model_dump(mode="json")
             cancel_event = asyncio.Event()
             state.cancel_events[generation_id] = cancel_event
@@ -324,15 +332,18 @@ class CuratorService:
                     409,
                 )
             async with self.generation_limit:
-                privacy_session: PrivacyFilterSession | None = None
-                if self.privacy_filter is not None:
-                    privacy_session = await self.privacy_filter.sanitize_context(
-                        context, cancel_event
-                    )
-                    context = privacy_session.context
-                context = await self._extract_comment_context(context, cancel_event)
-                context_dict = context.model_dump(mode="json")
-                messages = build_messages(context_dict, self.system_prompt)
+                privacy_session = await self.privacy_filter.sanitize_context(
+                    context, cancel_event
+                )
+                context = privacy_session.context
+                messages = build_messages(context.model_dump(mode="json"), self.system_prompt)
+                prompt_chars = sum(len(message["content"]) for message in messages) + len(
+                    json.dumps(self.model_schema, ensure_ascii=False, separators=(",", ":"))
+                )
+                if prompt_chars > self.settings.llm_direct_prompt_chars:
+                    prepared = await self._extract_comment_context(context, cancel_event)
+                    if prepared is not context:
+                        messages = build_messages(prepared.model_dump(mode="json"), self.system_prompt)
                 model_started = time.monotonic()
                 try:
                     raw_result = await llm.generate(messages, self.model_schema, cancel_event)
@@ -346,7 +357,7 @@ class CuratorService:
                         },
                     )
                 try:
-                    validation_result = self._restore_external_source_refs(
+                    validation_result = self._restore_source_refs(
                         raw_result, privacy_session
                     )
                     return self._finalize_and_validate(
@@ -372,7 +383,7 @@ class CuratorService:
                                 "duration_ms": round((time.monotonic() - model_started) * 1000),
                             },
                         )
-                    validation_result = self._restore_external_source_refs(
+                    validation_result = self._restore_source_refs(
                         repaired_result, privacy_session
                     )
                     return self._finalize_and_validate(
@@ -383,13 +394,11 @@ class CuratorService:
         finally:
             state.cancel_events.pop(generation_id, None)
 
-    def _restore_external_source_refs(
+    def _restore_source_refs(
         self,
         result: dict[str, Any],
-        privacy_session: PrivacyFilterSession | None,
+        privacy_session: PrivacyFilterSession,
     ) -> dict[str, Any]:
-        if self.privacy_filter is None or privacy_session is None:
-            return result
         restored = self.privacy_filter.restore_source_refs(result, privacy_session)
         if not isinstance(restored, dict):
             raise CuratorError(

@@ -14,8 +14,8 @@
 | MITM Jira | TLS verify всегда включён; corporate CA bundle; no redirect | компрометация корпоративного CA вне контроля приложения |
 | Случайная публикация UI | host binding `127.0.0.1`; Trusted Host, CSP, CSRF, SameSite cookie; model port не опубликован | другой локальный процесс может обратиться к UI; ОС/endpoint protection остаются частью boundary |
 | SSRF через base URL | URL валидируется, credentials/query запрещены, HTTPS обязателен кроме mock; Jira destination вводит пользователь | DNS rebinding/корпоративный DNS контролируются инфраструктурой |
-| PII в логах | только event/code/correlation/duration; отключены httpx/access logs; stack trace не показывается UI | unexpected third-party stderr нужно проверять при обновлениях |
-| PII во внешнем AI API | отдельный opt-in; локальная PII-модель; обязательный словарь и regex; source aliases; fail-closed при сбое | автоматическое обнаружение может пропустить косвенный идентификатор; нужны организационное разрешение и проверка поставщика |
+| PII в логах | по умолчанию только event/code/correlation/duration; диагностический LLM payload содержит уже отфильтрованный точный запрос основной модели; сырой PII-ввод не логируется | фильтр может пропустить косвенный идентификатор; диагностические логи требуют ограниченного доступа |
+| PII в основной AI-модели | для всех runtime локальная PII-модель, обязательный словарь, regex, source aliases и fail-closed; для внешнего API дополнительный явный opt-in | автоматическое обнаружение может пропустить косвенный идентификатор; для external нужны организационное разрешение и проверка поставщика |
 | Persisted PII | нет БД/caches/prompts; export только по действию; field mapping зафиксирован в коде | browser/download history и выбранный каталог экспорта контролирует пользователь |
 | Supply-chain compromise | точные Python versions; base/runtime image digests; model URL commit + SHA-256; SBOM/CVE scripts | digest нужно обновлять вместе с security fixes после проверки |
 | Resource exhaustion | response/comment/context limits; max pages; one concurrent generation; timeout/cancel | длинная CPU generation всё ещё нагружает ноутбук |
@@ -31,7 +31,7 @@
 
 ## Сетевой контур
 
-В локальных runtime приложению нужны только Jira и внутренний model service. Оно не содержит telemetry/CDN. Docker bridge сам по себе не является egress firewall: в строгом контуре примените корпоративный host firewall/proxy allowlist для Jira host и запретите иной egress контейнеру `app`; контейнеру `model` внешний egress не нужен вообще. Runtime `external` осознанно добавляет HTTPS egress только к настроенному AI API; ограничьте allowlist этим host и примените требования вашей организации к внешней обработке данных.
+В локальных runtime приложению нужны Jira, выбранный model service и локальная Ollama PII-модель. Оно не содержит telemetry/CDN. Docker bridge сам по себе не является egress firewall: в строгом контуре примените корпоративный host firewall/proxy allowlist для Jira host и локального Ollama endpoint; контейнеру `model` внешний egress не нужен. Runtime `external` осознанно добавляет HTTPS egress только к настроенному AI API; ограничьте allowlist этим host и примените требования вашей организации к внешней обработке данных.
 
 ## Retention и безопасное удаление
 

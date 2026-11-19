@@ -32,12 +32,17 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
     store = SessionStore(
         hmac_key=get_or_create_session_hmac_key(settings.hmac_key_file),
     )
-    curator = service or CuratorService(settings, ROOT)
+    curator = service
     csrf_tokens: dict[str, str] = {}
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        nonlocal curator
         configure_logging()
+        # Build runtime clients at process startup, not module import. This keeps
+        # tooling able to import the app while preserving fail-fast startup when
+        # the mandatory privacy filter is not configured.
+        curator = curator or CuratorService(settings, ROOT)
         yield
 
     app = FastAPI(title="ИИ-Куратор", version="0.1.0", docs_url=None if settings.production else "/docs", redoc_url=None, lifespan=lifespan)

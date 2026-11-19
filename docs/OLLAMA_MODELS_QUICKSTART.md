@@ -1,6 +1,6 @@
 # Запуск AI Curator с Native Ollama: Gemma 4 12B и Qwen3 8B
 
-Это основной сценарий для macOS с Apple Silicon. Приложение AI Curator работает в Docker, а основная Gemma 4 12B или более лёгкая Qwen3 8B — в установленной на компьютере Ollama с Metal. Docker-контейнер `llama.cpp` в этом режиме не запускается.
+Это основной сценарий для macOS с Apple Silicon. Приложение AI Curator работает в Docker, а обязательная PII-модель и основная Gemma 4 12B или более лёгкая Qwen3 8B — в установленной на компьютере Ollama с Metal. Docker-контейнер `llama.cpp` в этом режиме не запускается.
 
 ## Что понадобится
 
@@ -46,6 +46,8 @@ CURATOR_LLM_RUNTIME=ollama
 CURATOR_OLLAMA_BASE_URL=http://host.docker.internal:11434
 # Основная модель:
 CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b
+CURATOR_PII_FILTER_MODEL=ai-curator-pii-gemma3-4b
+CURATOR_PII_FILTER_DICTIONARY_FILE=/secrets/pii_dictionary.txt
 CURATOR_LLM_TEMPERATURE=0.2
 CURATOR_LLM_REASONING_EFFORT=low
 ```
@@ -99,7 +101,17 @@ chmod 600 secrets/hmac_key
 
 Jira PAT в этот файл записывать нельзя. PAT безопаснее вводить в web-интерфейсе приложения.
 
-## 5. Создайте локальный тег Ollama
+## 5. Создайте локальные теги Ollama и PII-словарь
+
+Обязательный фильтр для любой основной модели:
+
+```bash
+./scripts/prepare-ollama.sh pii-filter
+cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+chmod 600 secrets/pii_dictionary.txt
+```
+
+Перед production замените примеры в словаре реальными организационными именами, логинами и идентификаторами.
 
 Для Qwen3 8B:
 
@@ -119,7 +131,7 @@ Jira PAT в этот файл записывать нельзя. PAT безоп�
 ./scripts/prepare-ollama.sh all
 ```
 
-Без аргумента скрипт подготавливает основную Gemma 4 12B. Он создаёт локальные теги `ai-curator-gemma4-12b` и/или `ai-curator-qwen3-8b` и применяет параметры соответствующего Modelfile. Проверьте результат:
+Без аргумента скрипт подготавливает основную Gemma 4 12B. Цель `all` теперь также готовит обязательный тег `ai-curator-pii-gemma3-4b`. Проверьте результат:
 
 ```bash
 ollama show ai-curator-gemma4-12b
@@ -218,9 +230,10 @@ docker compose logs app --tail 100
 
 ```powershell
 PowerShell -ExecutionPolicy Bypass -File scripts/prepare-ollama.ps1 gemma4-12b
+PowerShell -ExecutionPolicy Bypass -File scripts/prepare-ollama.ps1 pii-filter
 # либо
 PowerShell -ExecutionPolicy Bypass -File scripts/prepare-ollama.ps1 qwen3-8b
 PowerShell -ExecutionPolicy Bypass -File scripts/start.ps1
 ```
 
-Перед этим установите и запустите [Ollama for Windows](https://docs.ollama.com/windows) и создайте `secrets/hmac_key`. Локальный GGUF нужен только для Qwen; Gemma скачивается командой подготовки через Ollama. Для остановки используйте `scripts/stop.ps1`.
+Перед этим установите и запустите [Ollama for Windows](https://docs.ollama.com/windows), создайте `secrets/hmac_key` и непустой `secrets/pii_dictionary.txt`. Локальный GGUF нужен только для Qwen; Gemma и PII-модель скачиваются командами подготовки через Ollama. Для остановки используйте `scripts/stop.ps1`.

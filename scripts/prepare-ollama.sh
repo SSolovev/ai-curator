@@ -57,6 +57,7 @@ case "$target" in
   all)
     prepare_local_gguf_model ai-curator-qwen3-8b Qwen3-8B-Q4_K_M.gguf Modelfile.qwen3-8b
     prepare_registry_model ai-curator-gemma4-12b gemma4:12b Modelfile.gemma4-12b
+    prepare_registry_model ai-curator-pii-gemma3-4b gemma3:4b Modelfile.pii-gemma3-4b
     ;;
   *)
     echo "Неизвестная модель: $target"

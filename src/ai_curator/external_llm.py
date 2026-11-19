@@ -228,14 +228,8 @@ class ExternalRuntimeBundle:
     privacy_filter: PersonalDataFilter
 
 
-def build_external_runtime(settings: Settings, root: Path) -> ExternalRuntimeBundle:
-    api_key = read_secret_file(settings.external_llm_api_key_file)
-    if not api_key:
-        raise CuratorError(
-            "EXTERNAL_LLM_KEY_MISSING",
-            "Не найден API-ключ внешней модели в файле секрета.",
-            500,
-        )
+def build_privacy_filter(settings: Settings, root: Path) -> PersonalDataFilter:
+    """Build the mandatory local privacy boundary used by every main runtime."""
     dictionary_terms = load_dictionary(settings.pii_filter_dictionary_file)
     pii_model = OllamaClient(
         settings.pii_filter_base_url,
@@ -254,6 +248,22 @@ def build_external_runtime(settings: Settings, root: Path) -> ExternalRuntimeBun
         batch_items=settings.pii_filter_batch_items,
         batch_chars=settings.pii_filter_batch_chars,
     )
+    return privacy_filter
+
+
+def build_external_runtime(
+    settings: Settings,
+    root: Path,
+    privacy_filter: PersonalDataFilter | None = None,
+) -> ExternalRuntimeBundle:
+    api_key = read_secret_file(settings.external_llm_api_key_file)
+    if not api_key:
+        raise CuratorError(
+            "EXTERNAL_LLM_KEY_MISSING",
+            "Не найден API-ключ внешней модели в файле секрета.",
+            500,
+        )
+    privacy_filter = privacy_filter or build_privacy_filter(settings, root)
     llm = ExternalOpenAIClient(
         settings.external_llm_base_url,
         settings.external_llm_model,

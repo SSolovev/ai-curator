@@ -16,9 +16,9 @@
 | `CURATOR_EXTERNAL_LLM_BASE_URL` | `https://api.openai.com/v1` | HTTPS base URL OpenAI-compatible API без credentials/query |
 | `CURATOR_EXTERNAL_LLM_MODEL` | `gpt-4.1-mini` | модель внешнего API |
 | `CURATOR_EXTERNAL_LLM_API_KEY_FILE` | `/secrets/external_llm_api_key` | путь к secret-файлу API-ключа |
-| `CURATOR_PII_FILTER_BASE_URL` | `http://host.docker.internal:11434` | только локальный Ollama endpoint PII-фильтра |
-| `CURATOR_PII_FILTER_MODEL` | `ai-curator-pii-gemma3-4b` | отдельная локальная модель обнаружения персональных данных |
-| `CURATOR_PII_FILTER_DICTIONARY_FILE` | `/secrets/pii_dictionary.txt` | обязательный непустой словарь локальных замен |
+| `CURATOR_PII_FILTER_BASE_URL` | `http://host.docker.internal:11434` | локальный Ollama endpoint обязательного PII-фильтра всех runtime |
+| `CURATOR_PII_FILTER_MODEL` | `ai-curator-pii-gemma3-4b` | отдельная локальная модель обнаружения персональных данных перед любой основной моделью |
+| `CURATOR_PII_FILTER_DICTIONARY_FILE` | `/secrets/pii_dictionary.txt` | обязательный для всех runtime непустой словарь локальных замен |
 | `CURATOR_PII_FILTER_TIMEOUT_SECONDS` | `300` | timeout одного локального PII-вызова |
 | `CURATOR_PII_FILTER_BATCH_ITEMS` | `20` | максимум текстовых фрагментов в партии PII-проверки |
 | `CURATOR_PII_FILTER_BATCH_CHARS` | `12000` | text budget партии PII-проверки |
@@ -26,9 +26,10 @@
 | `CURATOR_LLM_TEMPERATURE` | `0.2` | детерминированность и фактологическая устойчивость генерации |
 | `CURATOR_LLM_MAX_TOKENS` | `6000` | общий предел thinking и финального ответа |
 | `CURATOR_LLM_REASONING_EFFORT` | `none` | thinking-профиль Ollama: `none`, `low`, `medium`, `high`; для Gemma 4 по умолчанию отключён, чтобы reasoning не исчерпывал лимит ответа |
+| `CURATOR_LLM_DIRECT_PROMPT_CHARS` | `18000` | порог прямой генерации по суммарной длине сообщений и JSON Schema в символах; `0` включает предварительное сжатие всегда, когда есть комментарии |
 | `CURATOR_LLM_COMMENT_BATCH_CHARS` | `20000` | text budget партии извлечения; лимита количества комментариев нет |
 | `CURATOR_LLM_REPAIR_ENABLED` | `false` | повторная полная генерация после ошибки валидации |
-| `CURATOR_LLM_LOG_REQUEST_RESPONSE` | `false` | временно логировать полный запрос и ответ локальной модели |
+| `CURATOR_LLM_LOG_REQUEST_RESPONSE` | `false` | логировать точный уже отфильтрованный запрос и ответ основной модели для проверки обезличивания |
 | `CURATOR_JIRA_LOG_REQUEST_RESPONSE` | `false` | временно логировать полный запрос и ответ Jira без маскирования значений |
 | `CURATOR_JIRA_LOG_INVALID_RESPONSE_BODY` | `false` | временно логировать тело не-JSON ответа Jira |
 | `CURATOR_JIRA_LOG_FIELD_CATALOG` | `false` | временно логировать полный ответ `/rest/api/2/field` |
@@ -36,7 +37,7 @@
 | `CURATOR_JIRA_LOG_RESPONSE_MAX_CHARS` | `4000` | максимальная длина диагностического тела ответа |
 | `CURATOR_JIRA_PAGE_SIZE` | `50` | Jira page size, максимум 100 |
 | `CURATOR_JIRA_MAX_PAGES` | `100` | защита от бесконечной pagination |
-| `CURATOR_JIRA_MAX_COMMENTS` | `50` | максимум 50 последних комментариев Employee-задачи; все проходят пакетное извлечение событий и попадают в итоговый синтез |
+| `CURATOR_JIRA_MAX_COMMENTS` | `50` | максимум 50 последних комментариев Employee-задачи для итогового синтеза, напрямую или после предварительного сжатия |
 | `CURATOR_MAX_COMMENT_CHARS` | `12000` | лимит одного комментария |
 | `CURATOR_MAX_CONTEXT_CHARS` | `80000` | лимит дополнительной feedback-истории; полученные комментарии не удаляются и сжимаются отдельным этапом |
 | `CURATOR_MAX_JIRA_RESPONSE_BYTES` | `10000000` | лимит одного response |
@@ -55,13 +56,16 @@ CURATOR_LLM_RUNTIME=ollama
 
 - `llama_cpp` — Qwen3 4B в Docker, CPU fallback;
 - `ollama` — выбранная через `CURATOR_OLLAMA_MODEL` модель в native Ollama с Metal на Apple Silicon;
-- `external` — внешний OpenAI-compatible HTTPS API после обязательного локального PII- и словарного фильтра.
+- `external` — внешний OpenAI-compatible HTTPS API.
+
+Перед каждым runtime работает один и тот же обязательный локальный PII- и словарный фильтр. Поэтому native Ollama, тег `ai-curator-pii-gemma3-4b` и непустой `secrets/pii_dictionary.txt` требуются даже для `llama_cpp`.
 
 Runtime нельзя менять из браузера и нельзя менять без перезапуска. Backend создаёт только один выбранный адаптер. `scripts/start.*` перед запуском останавливает контейнер `llama.cpp` для Ollama, а для `llama_cpp` выгружает AI Curator-модели из памяти Ollama. Фоновый процесс Ollama не завершается целиком, потому что им могут пользоваться другие приложения.
 
-Подготовьте одну или обе модели Ollama:
+Сначала всегда подготовьте PII-фильтр, затем нужную основную модель Ollama, если выбран runtime `ollama`:
 
 ```bash
+./scripts/prepare-ollama.sh pii-filter
 ./scripts/prepare-ollama.sh gemma4-12b
 ./scripts/prepare-ollama.sh qwen3-8b
 # либо обе последовательно
@@ -80,7 +84,7 @@ CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b
 
 Для более лёгкой Qwen укажите `CURATOR_OLLAMA_MODEL=ai-curator-qwen3-8b`. После каждого переключения выполните `./scripts/start.sh` или `scripts/start.ps1`. Пересоздавать тег модели при каждом переключении не нужно; `prepare-ollama.*` повторяется только после изменения Modelfile или если тег ещё не создан.
 
-Внешний режим, API-key secret, словарь и fail-closed поведение описаны отдельно в [EXTERNAL_LLM.md](EXTERNAL_LLM.md). Для него сначала выполните `./scripts/prepare-ollama.sh pii-filter`; локальная PII-модель обязательна даже тогда, когда итоговый сценарий создаёт внешний API.
+Внешний режим и API-key secret описаны отдельно в [EXTERNAL_LLM.md](EXTERNAL_LLM.md). Общий privacy-контур одинаково обязателен для локальных и внешнего runtime.
 
 На MacBook Air M3 тестовый полный сценарий Qwen3 8B занял около 5 минут 39 секунд при 2155 выходных токенах. Генерация выполняется фоновой задачей: start endpoint сразу возвращает `generation_id`, а UI получает состояние коротким polling. Если модель уже занята, статус новой задачи завершится ошибкой `LLM_BUSY`.
 
@@ -98,7 +102,7 @@ CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b
 
 `CURATOR_JIRA_LOG_REQUEST_RESPONSE=true` записывает каждый Jira GET-запрос событием `jira_request_payload` и полный текст каждого полученного ответа событием `jira_response_payload`. Значения URL, query-параметров и ответа не маскируются. Заголовки запроса, `Authorization` и PAT намеренно не записываются. Режим действует также для повторных попыток и может создать очень большие логи с персональными данными.
 
-`CURATOR_LLM_LOG_REQUEST_RESPONSE=true` для локальных runtime записывает полный OpenAI-compatible payload запроса событием `llm_request_payload` и полный сырой HTTP-ответ событием `llm_response_payload`; они могут содержать персональные данные. Для `external` события называются `external_llm_request_payload` и `external_llm_response_payload` и содержат только прошедший фильтр запрос, но всё равно могут раскрывать внутреннюю информацию. Сырой запрос локальной PII-модели не логируется. Время подготовки данных, ответа модели, постобработки и валидации логируется отдельно независимо от этого флага.
+`CURATOR_LLM_LOG_REQUEST_RESPONSE=true` для локальных runtime записывает точный прошедший privacy-фильтр OpenAI-compatible payload событиями `llm_request_payload` и `llm_response_payload`. Для `external` события называются `external_llm_request_payload` и `external_llm_response_payload`. Сырой запрос локальной PII-модели никогда не логируется. Даже отфильтрованные payload могут содержать внутреннюю рабочую информацию и косвенные идентификаторы, поэтому доступ к логам нужно ограничить. Событие `pii_filter_completed` с числом замен должно предшествовать каждому запросу основной модели.
 
 ### Секрет-file
 

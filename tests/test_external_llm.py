@@ -11,6 +11,7 @@ import pytest
 from ai_curator.config import Settings
 from ai_curator.errors import CuratorError
 from ai_curator.external_llm import ExternalOpenAIClient
+from ai_curator.llm import LlamaCppClient
 from ai_curator.privacy_filter import PersonalDataFilter, load_dictionary
 from ai_curator.service import CuratorService, SessionState
 
@@ -85,6 +86,18 @@ class CapturingBadExternalLlm(NeverCalledExternalLlm):
         return {}
 
 
+class CapturingValidLlm(NeverCalledExternalLlm):
+    def __init__(self, result) -> None:
+        super().__init__()
+        self.result = result
+        self.messages = []
+
+    async def generate(self, messages, schema, cancel_event):
+        self.calls += 1
+        self.messages = messages
+        return json.loads(json.dumps(self.result, ensure_ascii=False))
+
+
 class FailingPrivacyFilter:
     async def health(self):
         return {"ok": False}
@@ -120,6 +133,36 @@ class FakeExternalHttpClient:
                     {
                         "finish_reason": "stop",
                         "message": {"content": '{"result":"готово"}'},
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            },
+        )
+
+
+class FakeMainHttpClient:
+    result = None
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+    async def post(self, url, **kwargs):
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(type(self).result, ensure_ascii=False)
+                        },
                     }
                 ],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5},
@@ -227,15 +270,16 @@ def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(
     assert restored["evidence"][0]["source_ref"] == original_ref
 
 
-def test_external_llm_is_not_called_when_privacy_filter_fails(
-    normalized, tmp_path
+@pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
+def test_main_llm_is_not_called_when_privacy_filter_fails(
+    normalized, tmp_path, runtime
 ):
     external = NeverCalledExternalLlm()
     service = CuratorService(
         Settings(
             data_dir=tmp_path,
-            llm_runtime="external",
-            external_llm_enabled=True,
+            llm_runtime=runtime,
+            external_llm_enabled=runtime == "external",
         ),
         ROOT,
         llm=external,
@@ -254,6 +298,116 @@ def test_external_llm_is_not_called_when_privacy_filter_fails(
 
     assert caught.value.code == "PII_FILTER_FAILED"
     assert external.calls == 0
+
+
+@pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
+def test_service_sends_only_sanitized_messages_to_every_runtime(
+    normalized, valid_result, tmp_path, runtime
+):
+    context = normalized.model_copy(deep=True)
+    context.interactions[0].text = (
+        "Мария Иванова, maria@example.com, работает над Проектом Альфа."
+    )
+    original_ref = context.interactions[0].source_ref
+    original_name = context.employee.display_name
+    original_key = context.employee.jira_key
+    dictionary = tmp_path / "pii_dictionary.txt"
+    dictionary.write_text("Проектом Альфа\n", encoding="utf-8")
+    privacy_filter = PersonalDataFilter(
+        DetectingPiiModel(),
+        load_dictionary(dictionary),
+        ROOT / "prompts/pii_filter.system.txt",
+    )
+    main_llm = CapturingValidLlm(valid_result)
+    service = CuratorService(
+        Settings(
+            data_dir=tmp_path,
+            llm_runtime=runtime,
+            external_llm_enabled=runtime == "external",
+        ),
+        ROOT,
+        llm=main_llm,
+        privacy_filter=privacy_filter,
+    )
+
+    result = asyncio.run(
+        service.generate(
+            SessionState(context=context),
+            f"{runtime}-sanitized-boundary",
+            set(),
+            True,
+        )
+    )
+
+    outbound = json.dumps(main_llm.messages, ensure_ascii=False)
+    for forbidden in (
+        "Мария Иванова",
+        "maria@example.com",
+        "Проектом Альфа",
+        original_ref,
+        original_name,
+        original_key,
+    ):
+        assert forbidden not in outbound
+    assert "SRC-" in outbound
+    assert "[PII_PERSON]" in outbound
+    assert result["agenda"][-1]["end_minute"] == 30
+
+
+def test_logged_main_request_is_exactly_the_sanitized_payload(
+    normalized, valid_result, tmp_path, monkeypatch, caplog
+):
+    context = normalized.model_copy(deep=True)
+    context.interactions[0].text = (
+        "Мария Иванова, maria@example.com, работает над Проектом Альфа."
+    )
+    original_name = context.employee.display_name
+    original_key = context.employee.jira_key
+    dictionary = tmp_path / "pii_dictionary.txt"
+    dictionary.write_text("Проектом Альфа\n", encoding="utf-8")
+    privacy_filter = PersonalDataFilter(
+        DetectingPiiModel(),
+        load_dictionary(dictionary),
+        ROOT / "prompts/pii_filter.system.txt",
+    )
+    FakeMainHttpClient.result = valid_result
+    monkeypatch.setattr("ai_curator.llm.httpx.AsyncClient", FakeMainHttpClient)
+    main_llm = LlamaCppClient(
+        "http://model:8080", "test-model", log_request_response=True
+    )
+    service = CuratorService(
+        Settings(data_dir=tmp_path, llm_direct_prompt_chars=1_000_000),
+        ROOT,
+        llm=main_llm,
+        privacy_filter=privacy_filter,
+    )
+
+    with caplog.at_level(logging.INFO):
+        asyncio.run(
+            service.generate(
+                SessionState(context=context),
+                "logged-sanitized-boundary",
+                set(),
+                True,
+            )
+        )
+
+    events = [record.msg for record in caplog.records]
+    assert events.index("pii_filter_completed") < events.index("llm_request_payload")
+    request_record = next(
+        record for record in caplog.records if record.msg == "llm_request_payload"
+    )
+    outbound = request_record.request_body
+    for forbidden in (
+        "Мария Иванова",
+        "maria@example.com",
+        "Проектом Альфа",
+        original_name,
+        original_key,
+    ):
+        assert forbidden not in outbound
+    assert "[PII_PERSON]" in outbound
+    assert "SRC-" in outbound
 
 
 def test_service_sends_only_sanitized_messages_to_external_runtime(
@@ -345,13 +499,14 @@ def test_external_client_uses_structured_output_and_never_logs_key(
     )
 
 
-def test_external_runtime_does_not_accept_unfiltered_injected_client(tmp_path):
+@pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
+def test_runtime_does_not_accept_unfiltered_injected_client(tmp_path, runtime):
     with pytest.raises(ValueError):
         CuratorService(
             Settings(
                 data_dir=tmp_path,
-                llm_runtime="external",
-                external_llm_enabled=True,
+                llm_runtime=runtime,
+                external_llm_enabled=runtime == "external",
             ),
             ROOT,
             llm=NeverCalledExternalLlm(),

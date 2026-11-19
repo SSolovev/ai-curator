@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=6000, ge=1000, le=16_000)
     llm_reasoning_effort: Literal["none", "low", "medium", "high"] = "none"
+    llm_direct_prompt_chars: int = Field(default=18_000, ge=0)
     llm_comment_batch_chars: int = Field(default=20_000, ge=4000, le=80_000)
     llm_repair_enabled: bool = False
     llm_log_request_response: bool = False
@@ -112,20 +113,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 "external runtime requires CURATOR_EXTERNAL_LLM_ENABLED=true"
             )
+        secret_paths = [self.pii_filter_dictionary_file]
         if self.llm_runtime == "external":
-            for path in (
-                self.external_llm_api_key_file,
-                self.pii_filter_dictionary_file,
+            secret_paths.append(self.external_llm_api_key_file)
+        for path in secret_paths:
+            normalized_path = str(path).replace("\\", "/")
+            if (
+                not normalized_path.startswith("/secrets/")
+                or "/../" in normalized_path
+                or normalized_path.endswith("/..")
             ):
-                normalized_path = str(path).replace("\\", "/")
-                if (
-                    not normalized_path.startswith("/secrets/")
-                    or "/../" in normalized_path
-                    or normalized_path.endswith("/..")
-                ):
-                    raise ValueError(
-                        "external runtime secret files must be inside /secrets"
-                    )
+                raise ValueError("runtime secret files must be inside /secrets")
         return self
 
 

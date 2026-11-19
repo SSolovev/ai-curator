@@ -51,6 +51,16 @@ $PiiDictionaryFile = Get-Setting "CURATOR_PII_FILTER_DICTIONARY_FILE" "/secrets/
 
 if (-not (Test-Path "secrets/hmac_key")) { throw "Сначала выполните scripts/prepare-model.ps1" }
 
+# Every main runtime is behind the same local, fail-closed privacy boundary.
+Assert-OllamaModel $PiiModel
+if (-not $PiiDictionaryFile.StartsWith("/secrets/") -or $PiiDictionaryFile.Contains("..")) {
+    throw "Путь PII-словаря должен находиться внутри /secrets/."
+}
+$HostPiiDictionary = Join-Path "secrets" $PiiDictionaryFile.Substring(9)
+if (-not (Test-Path $HostPiiDictionary) -or (Get-Item $HostPiiDictionary).Length -eq 0) {
+    throw "Создайте непустой $HostPiiDictionary: он обязателен для любого runtime."
+}
+
 switch ($Runtime) {
     "llama_cpp" {
         if (-not (Test-Path "models/Qwen3-4B-Q4_K_M.gguf")) { throw "Сначала выполните scripts/prepare-model.ps1" }
@@ -69,20 +79,12 @@ switch ($Runtime) {
         if ($ExternalEnabled -notin @("true", "True", "TRUE", "1", "yes", "Yes", "YES")) {
             throw "Для external установите CURATOR_EXTERNAL_LLM_ENABLED=true."
         }
-        Assert-OllamaModel $PiiModel
         if (-not $ExternalKeyFile.StartsWith("/secrets/") -or $ExternalKeyFile.Contains("..")) {
             throw "Путь API-ключа должен находиться внутри /secrets/."
         }
-        if (-not $PiiDictionaryFile.StartsWith("/secrets/") -or $PiiDictionaryFile.Contains("..")) {
-            throw "Путь PII-словаря должен находиться внутри /secrets/."
-        }
         $HostExternalKey = Join-Path "secrets" $ExternalKeyFile.Substring(9)
-        $HostPiiDictionary = Join-Path "secrets" $PiiDictionaryFile.Substring(9)
         if (-not (Test-Path $HostExternalKey) -or (Get-Item $HostExternalKey).Length -eq 0) {
             throw "Создайте $HostExternalKey с API-ключом внешней модели."
-        }
-        if (-not (Test-Path $HostPiiDictionary) -or (Get-Item $HostPiiDictionary).Length -eq 0) {
-            throw "Создайте непустой $HostPiiDictionary."
         }
         docker compose stop app
         docker compose --profile llama stop model

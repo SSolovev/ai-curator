@@ -30,7 +30,7 @@ docker compose exec app python -c 'import httpx; print(httpx.get("http://host.do
 
 Ожидаемый статус — `200`. Не заменяйте адрес внешним host и не публикуйте Ollama на сетевом интерфейсе без firewall и согласования с IT.
 
-Для `external` диагностика должна показать `health.ok=true` одновременно у внешнего API и у `privacy_filter`. Проверьте `secrets/external_llm_api_key`, непустой `secrets/pii_dictionary.txt` и наличие `ai-curator-pii-gemma3-4b` через `ollama show`. Ошибка `PII_FILTER_FAILED` означает, что внешний запрос намеренно не был отправлен. Полная настройка: [EXTERNAL_LLM.md](EXTERNAL_LLM.md).
+Для любого runtime диагностика должна показать `health.ok=true` одновременно у основной модели и у `privacy_filter`. Проверьте непустой `secrets/pii_dictionary.txt` и наличие `ai-curator-pii-gemma3-4b` через `ollama show`. Для `external` дополнительно проверьте `secrets/external_llm_api_key`. Ошибка `PII_FILTER_FAILED` означает, что основная модель намеренно не была вызвана.
 
 ## Windows/WSL2
 
@@ -46,7 +46,7 @@ Backend отклоняет только не-объектный ответ, фа
 
 ## Полный запрос, ответ и время этапов LLM
 
-Временно установите `CURATOR_LLM_LOG_REQUEST_RESPONSE=true` в `.env` и пересоздайте `app`. Полные payload содержат переданный модели контекст сотрудника и результат анализа, поэтому не публикуйте их и выключите флаг после диагностики.
+Установите `CURATOR_LLM_LOG_REQUEST_RESPONSE=true` в `.env` и пересоздайте `app`. Payload содержит точные данные, переданные основной модели уже после обязательной фильтрации. Он нужен для оценки деперсонализации, но всё ещё может содержать косвенные идентификаторы и внутреннюю информацию.
 
 ```bash
 docker compose build app
@@ -54,7 +54,7 @@ docker compose up -d --no-deps --force-recreate app
 docker compose logs --no-log-prefix -f app | rg 'llm_'
 ```
 
-События `llm_request_payload` и `llm_response_payload` содержат полные данные локальной модели. Для внешнего runtime используются `external_llm_request_payload` и `external_llm_response_payload`; сырой ввод PII-модели не логируется. Длительности в миллисекундах находятся в `pii_filter_completed`, `llm_data_preparation_completed`, `llm_model_response_completed`, `llm_postprocessing_completed` и `llm_validation_completed`. `operation` различает обычную генерацию (`generate`) и исправление (`repair`).
+События `llm_request_payload` и `llm_response_payload` содержат точный отфильтрованный запрос и ответ локальной основной модели. Для внешнего runtime используются `external_llm_request_payload` и `external_llm_response_payload`; сырой ввод PII-модели не логируется. В одной `correlation_id` событие `pii_filter_completed` должно появиться раньше request payload. Длительности в миллисекундах находятся в `pii_filter_completed`, `llm_data_preparation_completed`, `llm_model_response_completed`, `llm_postprocessing_completed` и `llm_validation_completed`. `operation` различает извлечение (`comment_extraction`), генерацию (`generate`) и исправление (`repair`).
 
 После проверки верните `CURATOR_LLM_LOG_REQUEST_RESPONSE=false` и снова пересоздайте `app`.
 

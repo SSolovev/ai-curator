@@ -54,6 +54,7 @@ switch ($Target) {
     "all" {
         New-LocalGgufModel "ai-curator-qwen3-8b" "Qwen3-8B-Q4_K_M.gguf" "Modelfile.qwen3-8b"
         New-RegistryModel "ai-curator-gemma4-12b" "gemma4:12b" "Modelfile.gemma4-12b"
+        New-RegistryModel "ai-curator-pii-gemma3-4b" "gemma3:4b" "Modelfile.pii-gemma3-4b"
     }
     default {
         throw "Неизвестная модель: $Target. Допустимо: gemma4-12b, qwen3-8b, pii-filter или all"

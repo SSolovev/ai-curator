@@ -29,9 +29,16 @@ class GoldenMockLLM:
         return copy.deepcopy(self.response)
 
 
-def test_golden_full_path_mock_jira_normalization_mock_llm_rendered_result(normalized, valid_result, tmp_path):
+def test_golden_full_path_mock_jira_normalization_mock_llm_rendered_result(
+    normalized, valid_result, tmp_path, noop_privacy_filter
+):
     llm = GoldenMockLLM(valid_result)
-    service = CuratorService(Settings(data_dir=tmp_path), ROOT, llm=llm)
+    service = CuratorService(
+        Settings(data_dir=tmp_path),
+        ROOT,
+        llm=llm,
+        privacy_filter=noop_privacy_filter,
+    )
     state = SessionState(context=normalized)
     output = asyncio.run(service.generate(state, "golden-generation", {"jira-comment:7004"}, False))
     rendered = markdown_export(output)
@@ -43,7 +50,9 @@ def test_golden_full_path_mock_jira_normalization_mock_llm_rendered_result(norma
     assert "Сценарий встречи" in rendered
 
 
-def test_actual_mock_jira_api_to_normalization_and_model(mapping, valid_result, tmp_path):
+def test_actual_mock_jira_api_to_normalization_and_model(
+    mapping, valid_result, tmp_path, noop_privacy_filter
+):
     async def scenario():
         transport = httpx.ASGITransport(app=mock_jira_app)
         client = JiraClient(
@@ -95,7 +104,12 @@ def test_actual_mock_jira_api_to_normalization_and_model(mapping, valid_result, 
             include_display_name=True,
         )
         llm = GoldenMockLLM(valid_result)
-        service = CuratorService(Settings(data_dir=tmp_path), ROOT, llm=llm)
+        service = CuratorService(
+            Settings(data_dir=tmp_path),
+            ROOT,
+            llm=llm,
+            privacy_filter=noop_privacy_filter,
+        )
         output = await service.generate(SessionState(context=context), "integration-e2e", set(), False)
         return employees, context, output, llm
 

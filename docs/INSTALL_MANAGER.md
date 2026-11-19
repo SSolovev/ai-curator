@@ -7,9 +7,10 @@
 Нужно:
 
 - 32 ГБ системной RAM (это не означает 32 ГБ видеопамяти);
-- минимум 12 ГБ свободного диска для default: модель 5.03 ГБ, container images/кэш около 2–4 ГБ и запас;
+- минимум 16 ГБ свободного диска для основной и обязательной PII-модели, container images/кэша и запаса;
 - Docker Desktop с WSL2 engine на Windows, либо Docker Engine/Podman Compose на Linux;
-- во время первой подготовки — доступ к официальному Hugging Face; после этого интернет модели не нужен;
+- native Ollama для обязательного локального PII-фильтра при любом runtime;
+- во время первой подготовки — доступ к официальным источникам моделей; после этого интернет моделям не нужен;
 - доступ по VPN/сети к вашей Jira.
 
 В PowerShell: `docker version`, `docker compose version`. В WSL/Linux/macOS: `free -h` (Linux) или Activity Monitor (macOS), `df -h .`.
@@ -21,6 +22,8 @@ PowerShell из каталога проекта:
 ```powershell
 Copy-Item .env.example .env
 PowerShell -ExecutionPolicy Bypass -File scripts/prepare-model.ps1
+PowerShell -ExecutionPolicy Bypass -File scripts/prepare-ollama.ps1 pii-filter
+Copy-Item docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
 ```
 
 WSL/Linux/macOS:
@@ -28,9 +31,12 @@ WSL/Linux/macOS:
 ```bash
 cp .env.example .env
 ./scripts/prepare-model.sh
+./scripts/prepare-ollama.sh pii-filter
+cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+chmod 600 secrets/pii_dictionary.txt
 ```
 
-Скачивается ровно `Qwen3-4B-Q4_K_M.gguf`, 5.03 GB, с official Qwen repository на зафиксированном commit. Скрипт сверяет SHA-256. Повторный запуск не скачивает корректный файл заново. Веса не находятся внутри app image.
+Основная Docker-модель и специализированная PII-модель готовятся один раз. Перед production заполните `secrets/pii_dictionary.txt` реальными организационными именами, логинами и идентификаторами. Пустой словарь, недоступная PII-модель или Ollama блокируют вызов основной модели.
 
 ## 3. Корпоративный сертификат и PAT
 
@@ -50,9 +56,10 @@ WSL/Linux/macOS: `./scripts/start.sh`.
 
 На macOS с Apple Silicon можно использовать native Ollama с Metal: основная модель — Gemma 4 12B Q4_K_M с контекстом 16K, более лёгкая альтернатива — Qwen3 8B. Полная пошаговая инструкция, включая подготовку модели, переключение через `.env`, HMAC-ключ и диагностику: [OLLAMA_MODELS_QUICKSTART.md](OLLAMA_MODELS_QUICKSTART.md).
 
-Кратко: установите и запустите Ollama, затем подготовьте нужную модель:
+Кратко: установите и запустите Ollama, подготовьте обязательный фильтр и нужную основную модель:
 
 ```bash
+./scripts/prepare-ollama.sh pii-filter
 ./scripts/prepare-ollama.sh gemma4-12b
 # либо более лёгкая модель
 ./scripts/prepare-ollama.sh qwen3-8b
@@ -60,7 +67,7 @@ WSL/Linux/macOS: `./scripts/start.sh`.
 
 В `.env` установите `CURATOR_LLM_RUNTIME=ollama` и `CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b` либо `ai-curator-qwen3-8b`, затем повторите `./scripts/start.sh`; для Docker используйте `llama_cpp`. Одновременно запускается только выбранная модель: start-скрипт останавливает `llama.cpp` при выборе Ollama и выгружает невыбранные модели Ollama.
 
-Опциональный внешний API настраивается только после согласования обработки данных. Для него нужны отдельный API-key secret, словарь и локальная PII-модель; используйте [EXTERNAL_LLM.md](EXTERNAL_LLM.md), не переносите ключ в `.env`.
+Опциональный внешний API настраивается только после согласования обработки данных. Общий PII-фильтр и словарь уже обязательны для всех runtime; для external дополнительно нужен API-key secret. Используйте [EXTERNAL_LLM.md](EXTERNAL_LLM.md), не переносите ключ в `.env`.
 
 ## 5. Подключитесь к Jira
 
@@ -85,7 +92,7 @@ AI-вывод нельзя использовать как автоматиче�
 - проверить app: <http://127.0.0.1:8080/healthz>;
 - внизу UI открыть «Модель и защита данных» и выполнить диагностику активного runtime — в диагностическом ответе нет персональных данных;
 - обновить только из проверенного release: `scripts/update.ps1` в PowerShell или `./scripts/update.sh` в WSL/Linux/macOS, затем снова выполнить smoke/tests;
-- логи: `docker compose logs app --tail 100`; они содержат только event/code/correlation/time, но всё равно не публикуйте их без проверки.
+- логи: `docker compose logs app --tail 100`; по умолчанию они содержат только event/code/correlation/time. При `CURATOR_LLM_LOG_REQUEST_RESPONSE=true` в них находится точный отфильтрованный payload основной модели, поэтому не публикуйте их без проверки.
 
 ## 8. Безопасное удаление
 
@@ -93,6 +100,6 @@ AI-вывод нельзя использовать как автоматиче�
 
 ## Offline bundle
 
-На подключённой staging machine выполните `./scripts/prepare-offline-bundle.sh`. Получится каталог примерно 7–10 ГБ (точный `images.tar` зависит от платформы): model 5.03 GB, checksums, app/runtime images и config. Перед переносом security team должна проверить SBOM/CVE report и разрешение Apache-2.0/корпоративную политику распространения весов. В изолированном контуре запустите `install-offline.sh`.
+Текущий `prepare-offline-bundle.sh` упаковывает основную Docker-модель и образы, но не экспортирует native Ollama PII-модель. Поэтому полностью изолированная установка дополнительно требует одобренного вашей организацией offline-переноса Ollama-модели `ai-curator-pii-gemma3-4b`; без неё приложение fail-closed и не выполняет генерацию. Перед переносом security team должна проверить веса, SBOM/CVE report и лицензии.
 
 Podman: используйте `podman compose` вместо `docker compose`; health/dependency semantics зависят от версии, а scripts потребуют замены команды. GPU passthrough нужно проверять отдельно.

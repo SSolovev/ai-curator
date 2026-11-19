@@ -8,8 +8,30 @@ import pytest
 
 from ai_curator.domain import FieldMapping
 from ai_curator.normalization import normalize_bundle
+from ai_curator.privacy_filter import PrivacyFilterSession
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class NoopPrivacyFilter:
+    """Test double for cases that exercise behavior outside privacy filtering."""
+
+    async def health(self):
+        return {"ok": True}
+
+    async def sanitize_context(self, context, cancel_event):
+        sanitized = context.model_copy(deep=True)
+        sanitized.employee.display_name = None
+        return PrivacyFilterSession(sanitized, {})
+
+    @staticmethod
+    def restore_source_refs(value, session):
+        return value
+
+
+@pytest.fixture
+def noop_privacy_filter():
+    return NoopPrivacyFilter()
 
 
 @pytest.fixture

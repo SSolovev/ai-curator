@@ -37,6 +37,25 @@ pii_dictionary_file=${pii_dictionary_file:-/secrets/pii_dictionary.txt}
 
 test -s secrets/hmac_key || { echo "Сначала выполните ./scripts/prepare-model.sh"; exit 1; }
 
+# Every main runtime is behind the same local, fail-closed privacy boundary.
+command -v ollama >/dev/null 2>&1 || {
+  echo "Ollama не установлен: он нужен для обязательного PII-фильтра."
+  exit 1
+}
+ollama show "$pii_model" >/dev/null 2>&1 || {
+  echo "PII-модель $pii_model не найдена. Выполните ./scripts/prepare-ollama.sh pii-filter"
+  exit 1
+}
+case "$pii_dictionary_file" in
+  /secrets/*..*) echo "Путь PII-словаря не должен содержать '..'."; exit 1 ;;
+  /secrets/*) host_pii_dictionary="secrets/${pii_dictionary_file#/secrets/}" ;;
+  *) echo "Путь PII-словаря должен находиться внутри /secrets/."; exit 1 ;;
+esac
+test -s "$host_pii_dictionary" || {
+  echo "Создайте непустой $host_pii_dictionary: он обязателен для любого runtime."
+  exit 1
+}
+
 case "$runtime" in
   llama_cpp)
     test -f models/Qwen3-4B-Q4_K_M.gguf || {
@@ -69,30 +88,13 @@ case "$runtime" in
         exit 1
         ;;
     esac
-    command -v ollama >/dev/null 2>&1 || {
-      echo "Ollama не установлен: он нужен для локального PII-фильтра."
-      exit 1
-    }
-    ollama show "$pii_model" >/dev/null 2>&1 || {
-      echo "PII-модель $pii_model не найдена. Выполните ./scripts/prepare-ollama.sh pii-filter"
-      exit 1
-    }
     case "$external_key_file" in
       /secrets/*..*) echo "Путь API-ключа не должен содержать '..'."; exit 1 ;;
       /secrets/*) host_external_key="secrets/${external_key_file#/secrets/}" ;;
       *) echo "Путь API-ключа должен находиться внутри /secrets/."; exit 1 ;;
     esac
-    case "$pii_dictionary_file" in
-      /secrets/*..*) echo "Путь PII-словаря не должен содержать '..'."; exit 1 ;;
-      /secrets/*) host_pii_dictionary="secrets/${pii_dictionary_file#/secrets/}" ;;
-      *) echo "Путь PII-словаря должен находиться внутри /secrets/."; exit 1 ;;
-    esac
     test -s "$host_external_key" || {
       echo "Создайте $host_external_key с API-ключом внешней модели."
-      exit 1
-    }
-    test -s "$host_pii_dictionary" || {
-      echo "Создайте непустой $host_pii_dictionary."
       exit 1
     }
     docker compose stop app >/dev/null 2>&1 || true
