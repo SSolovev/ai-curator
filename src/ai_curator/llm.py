@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
 import httpx
@@ -12,7 +13,7 @@ from .errors import CuratorError
 logger = logging.getLogger("ai_curator.llm")
 
 
-class LocalLLM(Protocol):
+class MainLLM(Protocol):
     async def health(self) -> dict[str, Any]: ...
 
     async def generate(
@@ -20,8 +21,10 @@ class LocalLLM(Protocol):
     ) -> dict[str, Any]: ...
 
 
-class LlamaCppClient:
-    """OpenAI-compatible llama.cpp server adapter with native JSON-schema grammar."""
+class ChatCompletionsClient(ABC):
+    """Shared JSON requests and operations for OpenAI-compatible runtimes."""
+
+    completion_limit_key = "max_tokens"
 
     def __init__(
         self,
@@ -40,14 +43,6 @@ class LlamaCppClient:
         self.max_tokens = max_tokens
         self.log_request_response = log_request_response
 
-    async def health(self) -> dict[str, Any]:
-        try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                response = await client.get(f"{self.base_url}/health")
-            return {"ok": response.status_code == 200, "status": response.status_code}
-        except httpx.HTTPError:
-            return {"ok": False, "status": None}
-
     def _request_payload(
         self, messages: list[dict[str, str]], schema: dict[str, Any]
     ) -> dict[str, Any]:
@@ -55,13 +50,86 @@ class LlamaCppClient:
             "model": self.model,
             "messages": messages,
             "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
+            self.completion_limit_key: self.max_tokens,
             "stream": False,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {"name": "one_on_one", "strict": True, "schema": schema},
             },
         }
+
+    async def _post_completion(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        cancel_event: asyncio.Event,
+        headers: dict[str, str] | None = None,
+    ) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            request = asyncio.create_task(client.post(url, json=payload, headers=headers))
+            cancellation = asyncio.create_task(cancel_event.wait())
+            try:
+                await asyncio.wait({request, cancellation}, return_when=asyncio.FIRST_COMPLETED)
+                if cancel_event.is_set():
+                    raise CuratorError("GENERATION_CANCELLED", "Генерация отменена.", 409)
+                return request.result()
+            finally:
+                for task in (request, cancellation):
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(request, cancellation, return_exceptions=True)
+
+    @abstractmethod
+    async def _once(
+        self,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        cancel_event: asyncio.Event,
+        *,
+        operation: str,
+    ) -> Any: ...
+
+    async def generate(
+        self, messages: list[dict[str, str]], schema: dict[str, Any], cancel_event: asyncio.Event
+    ) -> dict[str, Any]:
+        return await self._once(messages, schema, cancel_event, operation="generate")
+
+    async def extract_comment_events(
+        self,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        cancel_event: asyncio.Event,
+    ) -> dict[str, Any]:
+        return await self._once(messages, schema, cancel_event, operation="comment_extraction")
+
+    async def repair(
+        self,
+        messages: list[dict[str, str]],
+        bad_result: dict[str, Any],
+        schema: dict[str, Any],
+        cancel_event: asyncio.Event,
+    ) -> dict[str, Any]:
+        repair_messages = [
+            *messages,
+            {"role": "assistant", "content": json.dumps(bad_result, ensure_ascii=False)},
+            {
+                "role": "user",
+                "content": "Исправь только структуру ответа по JSON Schema и инварианты. Не добавляй новые факты. Верни только JSON.",
+            },
+        ]
+        return await self._once(repair_messages, schema, cancel_event, operation="repair")
+
+
+class LlamaCppClient(ChatCompletionsClient):
+    """OpenAI-compatible llama.cpp server adapter with native JSON-schema grammar."""
+
+    async def health(self) -> dict[str, Any]:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.get(f"{self.base_url}/health")
+            return {"ok": response.status_code == 200, "status": response.status_code}
+        except httpx.HTTPError:
+            return {"ok": False, "status": None}
 
     async def _once(
         self,
@@ -80,21 +148,16 @@ class LlamaCppClient:
                     "request_body": json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
                 },
             )
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            request_task = asyncio.create_task(client.post(f"{self.base_url}/v1/chat/completions", json=payload))
-            cancel_task = asyncio.create_task(cancel_event.wait())
-            done, pending = await asyncio.wait({request_task, cancel_task}, return_when=asyncio.FIRST_COMPLETED)
-            for task in pending:
-                task.cancel()
-            if cancel_task in done and cancel_event.is_set():
-                request_task.cancel()
-                raise CuratorError("GENERATION_CANCELLED", "Генерация отменена.", 409)
-            try:
-                response = request_task.result()
-            except httpx.TimeoutException as exc:
-                raise CuratorError("LLM_TIMEOUT", "Локальная модель не ответила вовремя.", 504) from exc
-            except httpx.HTTPError as exc:
-                raise CuratorError("LLM_NETWORK", "Локальная модель недоступна. Откройте диагностику.", 502) from exc
+        try:
+            response = await self._post_completion(
+                f"{self.base_url}/v1/chat/completions", payload, cancel_event
+            )
+        except httpx.TimeoutException as exc:
+            raise CuratorError("LLM_TIMEOUT", "Локальная модель не ответила вовремя.", 504) from exc
+        except httpx.HTTPError as exc:
+            raise CuratorError(
+                "LLM_NETWORK", "Локальная модель недоступна. Откройте диагностику.", 502
+            ) from exc
         if self.log_request_response:
             logger.info(
                 "llm_response_payload",
@@ -134,29 +197,10 @@ class LlamaCppClient:
                     502,
                 )
             return json.loads(content) if isinstance(content, str) else content
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-            raise CuratorError("LLM_INVALID_JSON", "Локальная модель вернула некорректный JSON.", 502) from exc
-
-    async def generate(self, messages: list[dict[str, str]], schema: dict[str, Any], cancel_event: asyncio.Event) -> dict[str, Any]:
-        return await self._once(messages, schema, cancel_event, operation="generate")
-
-    async def extract_comment_events(
-        self,
-        messages: list[dict[str, str]],
-        schema: dict[str, Any],
-        cancel_event: asyncio.Event,
-    ) -> dict[str, Any]:
-        return await self._once(messages, schema, cancel_event, operation="comment_extraction")
-
-    async def repair(
-        self, messages: list[dict[str, str]], bad_result: dict[str, Any], schema: dict[str, Any], cancel_event: asyncio.Event
-    ) -> dict[str, Any]:
-        repair_messages = [
-            *messages,
-            {"role": "assistant", "content": json.dumps(bad_result, ensure_ascii=False)},
-            {"role": "user", "content": "Исправь только структуру ответа по JSON Schema и инварианты. Не добавляй новые факты. Верни только JSON."},
-        ]
-        return await self._once(repair_messages, schema, cancel_event, operation="repair")
+        except (KeyError, IndexError, AttributeError, TypeError, ValueError) as exc:
+            raise CuratorError(
+                "LLM_INVALID_JSON", "Локальная модель вернула некорректный JSON.", 502
+            ) from exc
 
 
 class OllamaClient(LlamaCppClient):

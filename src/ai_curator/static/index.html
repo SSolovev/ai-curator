@@ -46,9 +46,8 @@
   </section>
 
   <section id="preview" class="panel">
-    <h2 id="model-context-title">Что увидит локальная модель</h2>
+    <h2 id="model-context-title">Что будет обезличено перед основной моделью</h2>
     <p>Снимите флажок с любой записи, которую не нужно анализировать. Перед основной моделью контекст всегда проходит локальное обезличивание.</p>
-    <label id="include-name-label" class="inline"><input id="include-name" type="checkbox" disabled> <span>Имя всегда скрывается обязательным PII-фильтром</span></label>
     <div id="context-summary"></div><div id="records"></div>
     <button id="generate" class="primary">Подготовить сценарий</button><button id="cancel" class="danger hidden">Отменить</button>
   </section>
@@ -68,15 +67,26 @@
     <details>
       <summary>Модель и защита данных</summary>
       <div class="runtime-controls">
-        <div class="runtime-current"><small>Активный runtime</small><strong id="model-runtime">Проверка…</strong></div>
-        <button id="diagnostics" type="button">Проверить модель</button>
+        <div class="runtime-current">
+          <small>Активный runtime</small>
+          <strong id="model-runtime">Проверка…</strong>
+        </div>
+        <button id="diagnostics" type="button" aria-label="Проверить основную модель">Проверить модель</button>
         <span id="model-status" class="model-status" aria-live="polite">Проверка…</span>
       </div>
-      <p class="hint">Runtime выбирается до запуска ключом <code>CURATOR_LLM_RUNTIME</code>. Одновременно используется только одна модель.</p>
+      <div class="runtime-controls">
+        <div class="runtime-current">
+          <small>Модель обезличивания (Ollama)</small>
+          <strong id="privacy-filter-model">Проверка…</strong>
+        </div>
+        <button id="privacy-diagnostics" type="button" aria-label="Проверить модель обезличивания">Проверить модель</button>
+        <span id="privacy-filter-status" class="model-status" aria-live="polite">Проверка…</span>
+      </div>
+      <p class="hint">Основная модель выбирается перед запуском через <code>CURATOR_LLM_RUNTIME</code>. Отдельная локальная модель обезличивает данные.</p>
       <pre id="diagnostic-result"></pre>
     </details>
   </section>
 </main>
 <footer><button id="forget">Завершить сессию и забыть данные</button><span>ИИ-Куратор 0.1.0 · без встроенной телеметрии</span></footer>
-<script src="/static/app.js" defer></script>
+<script src="/static/app.js" type="module"></script>
 </body></html>

@@ -39,19 +39,15 @@ def validate_jira_url(value: str) -> str:
             "Для Jira нужен HTTPS. HTTP разрешён только для локального mock-сервера.",
         )
     if not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise CuratorError("JIRA_URL_INVALID", "Проверьте базовый URL Jira: без логина, query и fragment.")
+        raise CuratorError(
+            "JIRA_URL_INVALID", "Проверьте базовый URL Jira: без логина, query и fragment."
+        )
     try:
         ip = ipaddress.ip_address(parsed.hostname)
         if not (ip.is_private or ip.is_loopback):
-            raise CuratorError("JIRA_URL_PUBLIC_IP", "Разрешён только корпоративный или локальный адрес Jira.")
+            raise CuratorError(
+                "JIRA_URL_PUBLIC_IP", "Разрешён только корпоративный или локальный адрес Jira."
+            )
     except ValueError:
         pass
     return value.rstrip("/")
-
-
-def redact(value: str, secrets_to_hide: list[str]) -> str:
-    redacted = value
-    for secret in secrets_to_hide:
-        if secret:
-            redacted = redacted.replace(secret, "[REDACTED]")
-    return redacted

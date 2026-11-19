@@ -1,12 +1,33 @@
 $ErrorActionPreference = "Stop"
-$ProjectDir = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-Set-Location $ProjectDir
+Set-Location (Split-Path -Parent $PSScriptRoot)
 New-Item -ItemType Directory -Force -Path models,secrets,certs | Out-Null
-if (-not (Test-Path "secrets/hmac_key")) { [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLower() | Set-Content -NoNewline "secrets/hmac_key" }
-$Model = "models/Qwen3-4B-Q4_K_M.gguf"
-$Url = "https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/212c964b8f97cb5edc203d411b767aaae707e653/Qwen3-4B-Q4_K_M.gguf"
-if (-not (Test-Path $Model)) { Write-Host "Скачивание модели один раз (5.03 GB)…"; curl.exe -L --fail -C - -o "$Model.part" $Url; Move-Item "$Model.part" $Model }
-$Actual = (Get-FileHash -Algorithm SHA256 $Model).Hash.ToLower()
-if ($Actual -ne "d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785") { throw "Checksum модели не совпал. Файл удалять автоматически не будем." }
-Write-Host "Модель подготовлена и проверена."
 
+$KeyPath = "secrets/hmac_key"
+if (-not (Test-Path $KeyPath) -or (Get-Item $KeyPath).Length -eq 0) {
+    $Bytes = New-Object byte[] 32
+    $Generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $Generator.GetBytes($Bytes)
+    } finally {
+        $Generator.Dispose()
+    }
+    $Key = [BitConverter]::ToString($Bytes).Replace("-", "").ToLowerInvariant()
+    Set-Content -Path $KeyPath -Value $Key -Encoding ascii -NoNewline
+}
+
+$ModelName = "Qwen3-4B-Q4_K_M.gguf"
+$ModelPath = Join-Path "models" $ModelName
+$Url = "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/$ModelName"
+if (-not (Test-Path $ModelPath -PathType Leaf)) {
+    Write-Host "Скачивание модели один раз (около 2,5 ГБ)…"
+    curl.exe --fail --location --continue-at - --output "$ModelPath.part" $Url
+    if ($LASTEXITCODE -ne 0) { throw "Не удалось скачать GGUF." }
+    Move-Item "$ModelPath.part" $ModelPath
+}
+
+$ManifestEntry = Get-Content "models/SHA256SUMS" | Where-Object { $_ -match "\s+$([regex]::Escape($ModelName))$" }
+if (-not $ManifestEntry) { throw "В models/SHA256SUMS не найдена контрольная сумма $ModelName." }
+$ExpectedHash = ($ManifestEntry -split "\s+")[0]
+$ActualHash = (Get-FileHash -Algorithm SHA256 $ModelPath).Hash
+if ($ActualHash -ne $ExpectedHash) { throw "Контрольная сумма модели не совпала. Проверьте файл $ModelPath." }
+Write-Host "Модель подготовлена и проверена."

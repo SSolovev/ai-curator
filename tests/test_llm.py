@@ -21,7 +21,7 @@ class FakeAsyncClient:
     async def __aexit__(self, exc_type, exc, traceback):
         return False
 
-    async def post(self, url, json):
+    async def post(self, url, json, headers=None):
         return httpx.Response(
             200,
             request=httpx.Request("POST", url),
@@ -47,7 +47,7 @@ class FakeOllamaAsyncClient(FakeAsyncClient):
             json={"models": [{"name": "ai-curator-qwen3-8b:latest"}]},
         )
 
-    async def post(self, url, json):
+    async def post(self, url, json, headers=None):
         type(self).request_payload = json
         return await super().post(url, json)
 
@@ -62,9 +62,7 @@ def test_full_llm_request_and_response_logging(monkeypatch, caplog):
     messages = [{"role": "user", "content": "полный контекст"}]
 
     with caplog.at_level(logging.INFO, logger="ai_curator.llm"):
-        result = asyncio.run(
-            client.generate(messages, {"type": "object"}, asyncio.Event())
-        )
+        result = asyncio.run(client.generate(messages, {"type": "object"}, asyncio.Event()))
 
     assert result == {"result": "готово"}
     request_record = next(
@@ -108,9 +106,7 @@ def test_full_llm_payload_logging_is_disabled_by_default(monkeypatch, caplog):
 
 def test_ollama_health_checks_model_and_disables_reasoning_by_default(monkeypatch):
     monkeypatch.setattr("ai_curator.llm.httpx.AsyncClient", FakeOllamaAsyncClient)
-    client = OllamaClient(
-        "http://host.docker.internal:11434", "ai-curator-qwen3-8b"
-    )
+    client = OllamaClient("http://host.docker.internal:11434", "ai-curator-qwen3-8b")
 
     health = asyncio.run(client.health())
     result = asyncio.run(
@@ -131,9 +127,7 @@ def test_ollama_health_checks_model_and_disables_reasoning_by_default(monkeypatc
 
 def test_ollama_omits_reasoning_effort_for_gemma3(monkeypatch):
     monkeypatch.setattr("ai_curator.llm.httpx.AsyncClient", FakeOllamaAsyncClient)
-    client = OllamaClient(
-        "http://host.docker.internal:11434", "ai-curator-gemma3-4b"
-    )
+    client = OllamaClient("http://host.docker.internal:11434", "ai-curator-gemma3-4b")
 
     asyncio.run(
         client.generate(
@@ -158,7 +152,7 @@ def test_llm_reports_truncated_and_empty_responses(
     monkeypatch, finish_reason, content, expected_code
 ):
     class FakeInvalidResponseClient(FakeAsyncClient):
-        async def post(self, url, json):
+        async def post(self, url, json, headers=None):
             return httpx.Response(
                 200,
                 request=httpx.Request("POST", url),
@@ -186,3 +180,32 @@ def test_llm_reports_truncated_and_empty_responses(
         )
 
     assert exc_info.value.code == expected_code
+
+
+def test_cancelled_llm_request_finishes_before_client_closes(monkeypatch):
+    async def scenario():
+        request_started = asyncio.Event()
+        request_finished = asyncio.Event()
+
+        class WaitingClient(FakeAsyncClient):
+            async def post(self, url, json, headers=None):
+                request_started.set()
+                try:
+                    await asyncio.Future()
+                finally:
+                    request_finished.set()
+
+            async def __aexit__(self, exc_type, exc, traceback):
+                assert request_finished.is_set()
+
+        monkeypatch.setattr("ai_curator.llm.httpx.AsyncClient", WaitingClient)
+        client = LlamaCppClient("http://model:8080", "test-model")
+        cancel_event = asyncio.Event()
+        generation = asyncio.create_task(client.generate([], {"type": "object"}, cancel_event))
+        await request_started.wait()
+        cancel_event.set()
+        with pytest.raises(CuratorError) as caught:
+            await generation
+        assert caught.value.code == "GENERATION_CANCELLED"
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=2))

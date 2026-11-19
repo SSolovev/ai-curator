@@ -18,6 +18,7 @@ services:
       CURATOR_EXTERNAL_LLM_BASE_URL: "${CURATOR_EXTERNAL_LLM_BASE_URL:-https://api.openai.com/v1}"
       CURATOR_EXTERNAL_LLM_MODEL: "${CURATOR_EXTERNAL_LLM_MODEL:-gpt-4.1-mini}"
       CURATOR_EXTERNAL_LLM_API_KEY_FILE: "${CURATOR_EXTERNAL_LLM_API_KEY_FILE:-/secrets/external_llm_api_key}"
+      CURATOR_EXTERNAL_LLM_DIRECT_PROMPT_CHARS: "${CURATOR_EXTERNAL_LLM_DIRECT_PROMPT_CHARS:-36000}"
       CURATOR_PII_FILTER_BASE_URL: "${CURATOR_PII_FILTER_BASE_URL:-http://host.docker.internal:11434}"
       CURATOR_PII_FILTER_MODEL: "${CURATOR_PII_FILTER_MODEL:-ai-curator-pii-gemma3-4b}"
       CURATOR_PII_FILTER_DICTIONARY_FILE: "${CURATOR_PII_FILTER_DICTIONARY_FILE:-/secrets/pii_dictionary.txt}"
@@ -37,12 +38,12 @@ services:
       CURATOR_JIRA_LOG_FIELD_CATALOG: "${CURATOR_JIRA_LOG_FIELD_CATALOG:-false}"
       CURATOR_JIRA_LOG_EMPLOYEE_ISSUE: "${CURATOR_JIRA_LOG_EMPLOYEE_ISSUE:-false}"
       CURATOR_JIRA_LOG_RESPONSE_MAX_CHARS: "${CURATOR_JIRA_LOG_RESPONSE_MAX_CHARS:-4000}"
+      CURATOR_JIRA_MAX_PAGES: "${CURATOR_JIRA_MAX_PAGES:-100}"
       CURATOR_JIRA_MAX_COMMENTS: "${CURATOR_JIRA_MAX_COMMENTS:-50}"
       CURATOR_TOKEN_FILE: /secrets/jira_token
       CURATOR_HMAC_KEY_FILE: /secrets/hmac_key
       CURATOR_ALLOWED_HOSTS: '["127.0.0.1","localhost"]'
     volumes:
-      - curator-data:/data
       - ./secrets:/secrets:ro
       - ${CURATOR_CA_DIR:-./certs}:/certs:ro
     read_only: true
@@ -105,7 +106,6 @@ services:
     entrypoint: ["python", "-m", "uvicorn", "mock_jira.app:app", "--host", "0.0.0.0", "--port", "9000", "--no-access-log"]
     environment:
       PYTHONPATH: /app
-      CURATOR_LLM_TIMEOUT_SECONDS: "${CURATOR_LLM_TIMEOUT_SECONDS:-1500}"
     volumes:
       - ./mock_jira:/app/mock_jira:ro
       - ./tests/fixtures:/app/tests/fixtures:ro
@@ -126,6 +126,3 @@ services:
 networks:
   curator:
     driver: bridge
-
-volumes:
-  curator-data:

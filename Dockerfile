@@ -16,8 +16,7 @@ RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels ai-cura
 COPY --chown=${APP_UID}:${APP_GID} schemas ./schemas
 COPY --chown=${APP_UID}:${APP_GID} prompts ./prompts
 COPY --chown=${APP_UID}:${APP_GID} src ./src
-RUN mkdir /data && chown ${APP_UID}:${APP_GID} /data
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 CURATOR_ROOT=/app CURATOR_HOST=0.0.0.0 CURATOR_DATA_DIR=/data
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 CURATOR_ROOT=/app CURATOR_HOST=0.0.0.0
 USER ${APP_UID}:${APP_GID}
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]

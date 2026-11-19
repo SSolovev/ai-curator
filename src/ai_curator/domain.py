@@ -127,14 +127,9 @@ class ConnectionInput(StrictModel):
     proxy_url: str | None = None
 
 
-class EmployeeChoice(StrictModel):
-    key: str
-    summary: str | None = None
-    status: str | None = None
-
-
 class GenerateInput(StrictModel):
     excluded_source_refs: list[str] = Field(default_factory=list, max_length=500)
+    # Accepted for compatibility with older callers. Generation always hides the name.
     include_display_name: bool = False
 
 

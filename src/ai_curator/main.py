@@ -19,9 +19,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .config import Settings, get_settings
 from .domain import ConnectionInput, ExportInput, GenerateInput
 from .errors import CuratorError
+from .export import markdown_export
 from .logging_config import configure_logging, correlation_id_var
 from .security import get_or_create_session_hmac_key
-from .service import CuratorService, GenerationJob, SessionStore, markdown_export
+from .service import CuratorService
+from .session import GenerationJob, SessionState, SessionStore
 
 ROOT = Path(os.environ.get("CURATOR_ROOT", Path(__file__).resolve().parents[2]))
 logger = logging.getLogger("ai_curator")
@@ -45,7 +47,13 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
         curator = curator or CuratorService(settings, ROOT)
         yield
 
-    app = FastAPI(title="ИИ-Куратор", version="0.1.0", docs_url=None if settings.production else "/docs", redoc_url=None, lifespan=lifespan)
+    app = FastAPI(
+        title="ИИ-Куратор",
+        version="0.1.0",
+        docs_url=None if settings.production else "/docs",
+        redoc_url=None,
+        lifespan=lifespan,
+    )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 
     @app.middleware("http")
@@ -63,7 +71,15 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             host_header = request.headers.get("Host", "")
             allowed_origins = {f"http://{host_header}", f"https://{host_header}"}
             if origin and origin not in allowed_origins:
-                return JSONResponse({"error": {"code": "ORIGIN_REJECTED", "message": "Запрос с другого сайта отклонён."}}, status_code=403)
+                return JSONResponse(
+                    {
+                        "error": {
+                            "code": "ORIGIN_REJECTED",
+                            "message": "Запрос с другого сайта отклонён.",
+                        }
+                    },
+                    status_code=403,
+                )
             expected = csrf_tokens.get(session_id)
             supplied = request.headers.get("X-CSRF-Token")
             if (
@@ -71,31 +87,64 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
                 and request.url.path != "/api/session"
                 and (not expected or not supplied or not secrets.compare_digest(supplied, expected))
             ):
-                return JSONResponse({"error": {"code": "CSRF_REJECTED", "message": "Сессия устарела. Обновите страницу."}}, status_code=403)
+                return JSONResponse(
+                    {
+                        "error": {
+                            "code": "CSRF_REJECTED",
+                            "message": "Сессия устарела. Обновите страницу.",
+                        }
+                    },
+                    status_code=403,
+                )
         response = await call_next(request)
         if new_session:
-            response.set_cookie("curator_session", session_id, httponly=True, samesite="strict", secure=False, max_age=None)
+            response.set_cookie(
+                "curator_session",
+                session_id,
+                httponly=True,
+                samesite="strict",
+                secure=False,
+                max_age=None,
+            )
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        )
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Correlation-ID"] = correlation_id[:64]
-        logger.info("request_completed", extra={"duration_ms": round((time.monotonic() - started) * 1000), "code": response.status_code})
+        logger.info(
+            "request_completed",
+            extra={
+                "duration_ms": round((time.monotonic() - started) * 1000),
+                "code": response.status_code,
+            },
+        )
         return response
 
     @app.exception_handler(CuratorError)
     async def curator_exception(_: Request, exc: CuratorError):
         logger.warning("controlled_error", extra={"code": exc.code})
-        return JSONResponse({"error": {"code": exc.code, "message": exc.user_message}}, status_code=exc.status_code)
+        return JSONResponse(
+            {"error": {"code": exc.code, "message": exc.user_message}}, status_code=exc.status_code
+        )
 
     @app.exception_handler(Exception)
     async def unexpected_exception(_: Request, exc: Exception):
         logger.exception("unexpected_error", extra={"code": type(exc).__name__})
-        return JSONResponse({"error": {"code": "INTERNAL_ERROR", "message": "Неожиданная ошибка. Повторите действие или откройте диагностику."}}, status_code=500)
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Неожиданная ошибка. Повторите действие или откройте диагностику.",
+                }
+            },
+            status_code=500,
+        )
 
-    def state(request: Request):
+    def state(request: Request) -> SessionState:
         return store.get(request.state.session_id)
 
     @app.get("/", response_class=HTMLResponse)
@@ -114,7 +163,13 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
 
     @app.post("/api/connect")
     async def connect(request: Request, body: ConnectionInput):
-        return await curator.connect(state(request), base_url=body.jira_base_url, token=body.token, ca_bundle_path=body.ca_bundle_path, proxy_url=body.proxy_url)
+        return await curator.connect(
+            state(request),
+            base_url=body.jira_base_url,
+            token=body.token,
+            ca_bundle_path=body.ca_bundle_path,
+            proxy_url=body.proxy_url,
+        )
 
     @app.get("/api/employees")
     async def employees(
@@ -149,7 +204,7 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             )
         return session.context
 
-    def generation_job(session, generation_id: str) -> GenerationJob:
+    def generation_job(session: SessionState, generation_id: str) -> GenerationJob:
         job = session.generation_jobs.get(generation_id)
         if job is None:
             raise CuratorError(
@@ -160,46 +215,48 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
         return job
 
     async def run_generation_job(
-        session,
+        session: SessionState,
         job: GenerationJob,
         excluded_source_refs: set[str],
-        include_display_name: bool,
     ) -> None:
         try:
-            job.result = await curator.generate(
+            result = await curator.generate(
                 session,
                 job.generation_id,
                 excluded_source_refs,
-                include_display_name,
             )
-            job.status = "succeeded"
+            if job.status == "running":
+                job.result = result
+                job.status = "succeeded"
         except asyncio.CancelledError:
-            job.status = "cancelled"
-            job.error = {
-                "code": "GENERATION_CANCELLED",
-                "message": "Генерация отменена.",
-            }
+            job.mark_cancelled()
         except CuratorError as exc:
-            job.status = "cancelled" if exc.code == "GENERATION_CANCELLED" else "failed"
-            job.error = {"code": exc.code, "message": exc.user_message}
-            job.error_status_code = exc.status_code
+            if exc.code == "GENERATION_CANCELLED":
+                job.mark_cancelled()
+            elif job.status == "running":
+                job.status = "failed"
+                job.error = {"code": exc.code, "message": exc.user_message}
+                job.error_status_code = exc.status_code
         except Exception as exc:
             logger.exception(
                 "background_generation_failed",
                 extra={"code": type(exc).__name__},
             )
-            job.status = "failed"
-            job.error = {
-                "code": "INTERNAL_ERROR",
-                "message": "Неожиданная ошибка. Повторите действие или откройте диагностику.",
-            }
+            if job.status == "running":
+                job.status = "failed"
+                job.error = {
+                    "code": "INTERNAL_ERROR",
+                    "message": "Неожиданная ошибка. Повторите действие или откройте диагностику.",
+                }
         finally:
-            job.finished_at = time.monotonic()
+            finished_at = time.monotonic()
+            if job.finished_at is None:
+                job.finished_at = finished_at
             logger.info(
                 "background_generation_completed",
                 extra={
                     "code": job.error["code"] if job.error else None,
-                    "duration_ms": round((job.finished_at - job.started_at) * 1000),
+                    "duration_ms": round((finished_at - job.started_at) * 1000),
                 },
             )
 
@@ -221,7 +278,6 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
                 session,
                 job,
                 set(body.excluded_source_refs),
-                body.include_display_name,
             ),
             name=f"curator-generation-{generation_id}",
         )
@@ -258,24 +314,30 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             job.task.cancel()
             cancelled = True
         if cancelled:
-            job.status = "cancelled"
-            job.error = {
-                "code": "GENERATION_CANCELLED",
-                "message": "Генерация отменена.",
-            }
-            job.error_status_code = 409
-            job.finished_at = time.monotonic()
+            job.mark_cancelled()
         return {"cancelled": cancelled, **job.status_payload()}
 
     @app.get("/api/model/diagnostics")
     async def model_diagnostics():
         return await curator.model_diagnostics()
 
+    @app.get("/api/model/privacy-filter/diagnostics")
+    async def privacy_filter_diagnostics():
+        return await curator.privacy_filter_diagnostics()
+
     @app.post("/api/export")
     async def export(body: ExportInput):
         if body.format == "markdown":
-            return PlainTextResponse(markdown_export(body.result), media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="one-on-one.md"'})
-        return Response(json.dumps(body.result, ensure_ascii=False, indent=2), media_type="application/json", headers={"Content-Disposition": 'attachment; filename="one-on-one.json"'})
+            return PlainTextResponse(
+                markdown_export(body.result),
+                media_type="text/markdown",
+                headers={"Content-Disposition": 'attachment; filename="one-on-one.md"'},
+            )
+        return Response(
+            json.dumps(body.result, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="one-on-one.json"'},
+        )
 
     @app.delete("/api/session")
     async def delete_session(request: Request):
@@ -294,7 +356,7 @@ app = create_app()
 
 def run() -> None:
     settings = get_settings()
-    uvicorn.run("ai_curator.main:app", host=settings.host, port=settings.port, access_log=False)
+    uvicorn.run(app, host=settings.host, port=settings.port, access_log=False)
 
 
 if __name__ == "__main__":

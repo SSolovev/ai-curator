@@ -20,5 +20,6 @@ def jira_http_error(status: int) -> CuratorError:
         404: "Запрошенная запись Jira не найдена или недоступна.",
         429: "Jira временно ограничила частоту запросов. Подождите и повторите.",
     }
-    return CuratorError(f"JIRA_HTTP_{status}", messages.get(status, "Jira временно недоступна."), status)
-
+    return CuratorError(
+        f"JIRA_HTTP_{status}", messages.get(status, "Jira временно недоступна."), status
+    )

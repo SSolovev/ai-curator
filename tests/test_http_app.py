@@ -9,8 +9,9 @@ from fastapi.testclient import TestClient
 
 from ai_curator.config import Settings
 from ai_curator.domain import FieldMapping
-from ai_curator.main import create_app
-from ai_curator.service import SessionStore
+from ai_curator.main import ROOT, create_app
+from ai_curator.service import CuratorService
+from ai_curator.session import SessionStore
 
 
 class HTTPFakeService:
@@ -49,7 +50,7 @@ class HTTPFakeService:
         }
         return state.context
 
-    async def generate(self, state, generation_id, excluded, include_display_name):
+    async def generate(self, state, generation_id, excluded):
         return copy.deepcopy(self.result)
 
     def cancel(self, state, generation_id):
@@ -61,7 +62,7 @@ class HTTPFakeService:
 
 
 class HTTPBlockingFakeService(HTTPFakeService):
-    async def generate(self, state, generation_id, excluded, include_display_name):
+    async def generate(self, state, generation_id, excluded):
         await asyncio.sleep(3600)
 
     def cancel(self, state, generation_id):
@@ -105,10 +106,25 @@ def test_every_session_uses_fixed_default_mapping():
     assert store.get("session-two").mapping == FieldMapping()
 
 
-def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
-    app = create_app(
-        Settings(production=False, data_dir=tmp_path), HTTPFakeService(valid_result)
+def test_privacy_model_diagnostics_works_without_the_main_model(noop_privacy_filter):
+    class UnavailableMainModel:
+        async def health(self):
+            pytest.fail("Privacy diagnostics must not contact the main model")
+
+    settings = Settings(pii_filter_model="test-privacy-model")
+    service = CuratorService(
+        settings, ROOT, llm=UnavailableMainModel(), privacy_filter=noop_privacy_filter
     )
+    with TestClient(create_app(settings, service)) as client:
+        response = client.get("/api/model/privacy-filter/diagnostics")
+
+    assert response.status_code == 200
+    assert response.json()["model"] == "test-privacy-model"
+    assert response.json()["health"] == {"ok": True}
+
+
+def test_http_security_headers_csrf_and_session(valid_result):
+    app = create_app(Settings(production=False), HTTPFakeService(valid_result))
     with TestClient(app) as client:
         index = client.get("/")
         assert index.status_code == 200
@@ -124,19 +140,8 @@ def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
         assert "Скачать .md" in index.text
         app_js = client.get("/static/app.js")
         assert app_js.status_code == 200
-        assert "navigator.clipboard.writeText(field.value)" in app_js.text
-        assert "generationResultNotice(`Сценарий готов за" in app_js.text
-        assert "new Blob([$('#editable-result').value]" in app_js.text
-        assert "/api/fields" not in app_js.text
-        assert "/api/mapping" not in app_js.text
-        assert "/status" in app_js.text
-        assert "/result" in app_js.text
-        assert "await api('/api/context')" in app_js.text
-        assert "sessionStorage.setItem(generationStorageKey" in app_js.text
-        assert "trackGeneration(pending,Date.now())" not in app_js.text
-        assert "serverElapsedSeconds=Number(initialElapsedSeconds)||0" in app_js.text
-        assert "syncElapsed(job)" in app_js.text
-        assert "generationUnavailable=x.code==='GENERATION_NOT_FOUND'" in app_js.text
+        assert 'type="module"' in index.text
+        assert client.get("/static/result.js").status_code == 200
         assert index.headers["X-Frame-Options"] == "DENY"
         assert "default-src 'self'" in index.headers["Content-Security-Policy"]
         rejected = client.post(
@@ -166,11 +171,14 @@ def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
         assert restored_context.status_code == 200
         assert restored_context.json() == loaded_context.json()
         assert client.get("/api/fields").status_code == 404
-        assert client.put(
-            "/api/mapping",
-            headers={"X-CSRF-Token": csrf},
-            json=FieldMapping().model_dump(),
-        ).status_code == 404
+        assert (
+            client.put(
+                "/api/mapping",
+                headers={"X-CSRF-Token": csrf},
+                json=FieldMapping().model_dump(),
+            ).status_code
+            == 404
+        )
         default_runtime = client.get("/api/model/diagnostics")
         assert default_runtime.json()["runtime"] == "llama_cpp"
         runtime_switch_is_not_exposed = client.put(
@@ -212,9 +220,9 @@ def test_http_security_headers_csrf_and_session(valid_result, tmp_path):
         assert deleted.status_code == 200
 
 
-def test_background_generation_can_be_cancelled(valid_result, tmp_path):
+def test_background_generation_can_be_cancelled(valid_result):
     app = create_app(
-        Settings(production=False, data_dir=tmp_path),
+        Settings(production=False),
         HTTPBlockingFakeService(valid_result),
     )
     with TestClient(app) as client:

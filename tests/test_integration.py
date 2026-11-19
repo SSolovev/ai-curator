@@ -8,9 +8,11 @@ from pathlib import Path
 import httpx
 
 from ai_curator.config import Settings
+from ai_curator.export import markdown_export
 from ai_curator.jira import JiraClient, JiraTransportConfig
 from ai_curator.normalization import MM_FIELDS, normalize_bundle
-from ai_curator.service import CuratorService, SessionState, markdown_export
+from ai_curator.service import CuratorService
+from ai_curator.session import SessionState
 from mock_jira.app import app as mock_jira_app
 
 ROOT = Path(__file__).parents[1]
@@ -30,17 +32,17 @@ class GoldenMockLLM:
 
 
 def test_golden_full_path_mock_jira_normalization_mock_llm_rendered_result(
-    normalized, valid_result, tmp_path, noop_privacy_filter
+    normalized, valid_result, noop_privacy_filter
 ):
     llm = GoldenMockLLM(valid_result)
     service = CuratorService(
-        Settings(data_dir=tmp_path),
+        Settings(),
         ROOT,
         llm=llm,
         privacy_filter=noop_privacy_filter,
     )
     state = SessionState(context=normalized)
-    output = asyncio.run(service.generate(state, "golden-generation", {"jira-comment:7004"}, False))
+    output = asyncio.run(service.generate(state, "golden-generation", {"jira-comment:7004"}))
     rendered = markdown_export(output)
     assert "Алексей Андреевич Демов" not in llm.received[1]["content"]
     assert "jira-comment:7004" not in llm.received[1]["content"]
@@ -51,13 +53,14 @@ def test_golden_full_path_mock_jira_normalization_mock_llm_rendered_result(
 
 
 def test_actual_mock_jira_api_to_normalization_and_model(
-    mapping, valid_result, tmp_path, noop_privacy_filter
+    mapping, valid_result, noop_privacy_filter
 ):
     async def scenario():
         transport = httpx.ASGITransport(app=mock_jira_app)
         client = JiraClient(
             JiraTransportConfig(
-                base_url="http://localhost:9000", token="demo-token"  # noqa: S106 - mock only
+                base_url="http://localhost:9000",
+                token="demo-token",  # noqa: S106 - mock only
             ),
             transport=transport,
         )
@@ -105,12 +108,12 @@ def test_actual_mock_jira_api_to_normalization_and_model(
         )
         llm = GoldenMockLLM(valid_result)
         service = CuratorService(
-            Settings(data_dir=tmp_path),
+            Settings(),
             ROOT,
             llm=llm,
             privacy_filter=noop_privacy_filter,
         )
-        output = await service.generate(SessionState(context=context), "integration-e2e", set(), False)
+        output = await service.generate(SessionState(context=context), "integration-e2e", set())
         return employees, context, output, llm
 
     employees, context, output, llm = asyncio.run(scenario())
@@ -148,14 +151,13 @@ def test_mock_jira_returns_only_requested_employee_fields(mapping):
         transport = httpx.ASGITransport(app=mock_jira_app)
         client = JiraClient(
             JiraTransportConfig(
-                base_url="http://localhost:9000", token="demo-token"  # noqa: S106
+                base_url="http://localhost:9000",
+                token="demo-token",  # noqa: S106
             ),
             transport=transport,
         )
         try:
-            return await client.employee_issue(
-                "DEMO-666", ["summary", mapping.role, mapping.risk]
-            )
+            return await client.employee_issue("DEMO-666", ["summary", mapping.role, mapping.risk])
         finally:
             await client.close()
 

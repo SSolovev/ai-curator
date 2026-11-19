@@ -20,19 +20,19 @@
 PowerShell из каталога проекта:
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 PowerShell -ExecutionPolicy Bypass -File scripts/prepare-model.ps1
 PowerShell -ExecutionPolicy Bypass -File scripts/prepare-ollama.ps1 pii-filter
-Copy-Item docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+if (-not (Test-Path secrets/pii_dictionary.txt)) { Copy-Item docs/pii_dictionary.example.txt secrets/pii_dictionary.txt }
 ```
 
 WSL/Linux/macOS:
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 ./scripts/prepare-model.sh
 ./scripts/prepare-ollama.sh pii-filter
-cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+test -f secrets/pii_dictionary.txt || cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
 chmod 600 secrets/pii_dictionary.txt
 ```
 
@@ -47,6 +47,8 @@ chmod 600 secrets/pii_dictionary.txt
 Если политика требует secret-file, создайте одну строку в `secrets/jira_token`; ограничьте права владельца. Этот файл не входит в Git/offline bundle.
 
 ## 4. Запустите
+
+Для основной модели в Docker проверьте, что в `.env` указано `CURATOR_LLM_RUNTIME=llama_cpp`.
 
 PowerShell: `PowerShell -ExecutionPolicy Bypass -File scripts/start.ps1`.
 
@@ -80,7 +82,7 @@ WSL/Linux/macOS: `./scripts/start.sh`.
 
 ## 6. Создайте сценарий
 
-На экране контекста прочитайте каждую запись. Снимите checkbox с лишнего. Не включайте отображаемое имя без необходимости. Нажмите «Подготовить сценарий»; кнопку «Отменить» можно использовать во время generation.
+На экране контекста проверьте записи и снимите флажки с тех, которые хотите исключить. Затем нажмите «Подготовить сценарий». Имя автоматически скрывается перед запросом к основной модели. Пока сценарий формируется, доступна кнопка «Отменить».
 
 Результат появится в большом редактируемом поле. Подправьте формулировки и нажмите «Копировать текст», чтобы перенести именно отредактированную версию в документ или комментарий Jira. Файл `.md` также содержит ваши правки; исходный JSON остаётся отдельным техническим экспортом. Ниже поля можно раскрыть структурированный результат, проверить источники и даты, отделить факты от гипотез. Скачивание Markdown/JSON — явное сохранение на ваш диск; дальше файл защищается вашей корпоративной политикой.
 
@@ -90,7 +92,7 @@ AI-вывод нельзя использовать как автоматиче�
 
 - остановить: `scripts/stop.ps1` или `./scripts/stop.sh`;
 - проверить app: <http://127.0.0.1:8080/healthz>;
-- внизу UI открыть «Модель и защита данных» и выполнить диагностику активного runtime — в диагностическом ответе нет персональных данных;
+- внизу страницы откройте «Модель и защита данных». У основной модели и модели обезличивания есть отдельные кнопки проверки и статусы;
 - обновить только из проверенного release: `scripts/update.ps1` в PowerShell или `./scripts/update.sh` в WSL/Linux/macOS, затем снова выполнить smoke/tests;
 - логи: `docker compose logs app --tail 100`; по умолчанию они содержат только event/code/correlation/time. При `CURATOR_LLM_LOG_REQUEST_RESPONSE=true` в них находится точный отфильтрованный payload основной модели, поэтому не публикуйте их без проверки.
 

@@ -13,7 +13,8 @@ from ai_curator.errors import CuratorError
 from ai_curator.external_llm import ExternalOpenAIClient
 from ai_curator.llm import LlamaCppClient
 from ai_curator.privacy_filter import PersonalDataFilter, load_dictionary
-from ai_curator.service import CuratorService, SessionState
+from ai_curator.service import CuratorService
+from ai_curator.session import SessionState
 
 ROOT = Path(__file__).parents[1]
 
@@ -27,9 +28,7 @@ class DetectingPiiModel:
 
     async def generate(self, messages, schema, cancel_event):
         self.calls += 1
-        payload = messages[1]["content"].split("<records>\n", 1)[1].split(
-            "\n</records>", 1
-        )[0]
+        payload = messages[1]["content"].split("<records>\n", 1)[1].split("\n</records>", 1)[0]
         records = json.loads(payload)
         matches = []
         for record in records:
@@ -63,9 +62,7 @@ class CapturingBadExternalLlm(NeverCalledExternalLlm):
 
     async def extract_comment_events(self, messages, schema, cancel_event):
         self.messages.append(messages)
-        source_refs = schema["properties"]["records"]["items"]["properties"][
-            "source_ref"
-        ]["enum"]
+        source_refs = schema["properties"]["records"]["items"]["properties"]["source_ref"]["enum"]
         return {
             "records": [
                 {
@@ -107,6 +104,7 @@ class FailingPrivacyFilter:
 
 
 class FakeExternalHttpClient:
+    health_headers = None
     request_headers = None
     request_payload = None
 
@@ -120,6 +118,7 @@ class FakeExternalHttpClient:
         return False
 
     async def get(self, url, headers):
+        type(self).health_headers = headers
         return httpx.Response(200, request=httpx.Request("GET", url), json={"data": []})
 
     async def post(self, url, headers, json):
@@ -160,9 +159,7 @@ class FakeMainHttpClient:
                 "choices": [
                     {
                         "finish_reason": "stop",
-                        "message": {
-                            "content": json.dumps(type(self).result, ensure_ascii=False)
-                        },
+                        "message": {"content": json.dumps(type(self).result, ensure_ascii=False)},
                     }
                 ],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5},
@@ -220,13 +217,11 @@ def test_dictionary_loader_requires_nonempty_file(tmp_path):
     assert empty_error.value.code == "PII_DICTIONARY_EMPTY"
 
 
-def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(
-    normalized, tmp_path
-):
+def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(normalized, tmp_path):
     context = normalized.model_copy(deep=True)
-    context.interactions[0].text = (
-        "Мария Иванова обсуждает Проект Альфа; maria@example.com; +7 999 123-45-67."
-    )
+    context.interactions[
+        0
+    ].text = "Мария Иванова обсуждает Проект Альфа; maria@example.com; +7 999 123-45-67."
     context.context_selection.excluded_source_refs.append("jira-comment:secret-person-42")
     original_ref = context.interactions[0].source_ref
     original_employee_ref = context.employee.employee_ref
@@ -264,20 +259,15 @@ def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(
         for alias, source_ref in session.source_ref_restore.items()
         if source_ref == original_ref
     )
-    restored = privacy_filter.restore_source_refs(
-        {"evidence": [{"source_ref": alias}]}, session
-    )
+    restored = privacy_filter.restore_source_refs({"evidence": [{"source_ref": alias}]}, session)
     assert restored["evidence"][0]["source_ref"] == original_ref
 
 
 @pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
-def test_main_llm_is_not_called_when_privacy_filter_fails(
-    normalized, tmp_path, runtime
-):
+def test_main_llm_is_not_called_when_privacy_filter_fails(normalized, runtime):
     external = NeverCalledExternalLlm()
     service = CuratorService(
         Settings(
-            data_dir=tmp_path,
             llm_runtime=runtime,
             external_llm_enabled=runtime == "external",
         ),
@@ -292,7 +282,6 @@ def test_main_llm_is_not_called_when_privacy_filter_fails(
                 SessionState(context=normalized),
                 "external-filter-failure",
                 set(),
-                True,
             )
         )
 
@@ -305,9 +294,7 @@ def test_service_sends_only_sanitized_messages_to_every_runtime(
     normalized, valid_result, tmp_path, runtime
 ):
     context = normalized.model_copy(deep=True)
-    context.interactions[0].text = (
-        "Мария Иванова, maria@example.com, работает над Проектом Альфа."
-    )
+    context.interactions[0].text = "Мария Иванова, maria@example.com, работает над Проектом Альфа."
     original_ref = context.interactions[0].source_ref
     original_name = context.employee.display_name
     original_key = context.employee.jira_key
@@ -321,7 +308,6 @@ def test_service_sends_only_sanitized_messages_to_every_runtime(
     main_llm = CapturingValidLlm(valid_result)
     service = CuratorService(
         Settings(
-            data_dir=tmp_path,
             llm_runtime=runtime,
             external_llm_enabled=runtime == "external",
         ),
@@ -335,7 +321,6 @@ def test_service_sends_only_sanitized_messages_to_every_runtime(
             SessionState(context=context),
             f"{runtime}-sanitized-boundary",
             set(),
-            True,
         )
     )
 
@@ -358,9 +343,7 @@ def test_logged_main_request_is_exactly_the_sanitized_payload(
     normalized, valid_result, tmp_path, monkeypatch, caplog
 ):
     context = normalized.model_copy(deep=True)
-    context.interactions[0].text = (
-        "Мария Иванова, maria@example.com, работает над Проектом Альфа."
-    )
+    context.interactions[0].text = "Мария Иванова, maria@example.com, работает над Проектом Альфа."
     original_name = context.employee.display_name
     original_key = context.employee.jira_key
     dictionary = tmp_path / "pii_dictionary.txt"
@@ -372,11 +355,9 @@ def test_logged_main_request_is_exactly_the_sanitized_payload(
     )
     FakeMainHttpClient.result = valid_result
     monkeypatch.setattr("ai_curator.llm.httpx.AsyncClient", FakeMainHttpClient)
-    main_llm = LlamaCppClient(
-        "http://model:8080", "test-model", log_request_response=True
-    )
+    main_llm = LlamaCppClient("http://model:8080", "test-model", log_request_response=True)
     service = CuratorService(
-        Settings(data_dir=tmp_path, llm_direct_prompt_chars=1_000_000),
+        Settings(llm_direct_prompt_chars=1_000_000),
         ROOT,
         llm=main_llm,
         privacy_filter=privacy_filter,
@@ -388,7 +369,6 @@ def test_logged_main_request_is_exactly_the_sanitized_payload(
                 SessionState(context=context),
                 "logged-sanitized-boundary",
                 set(),
-                True,
             )
         )
 
@@ -410,13 +390,9 @@ def test_logged_main_request_is_exactly_the_sanitized_payload(
     assert "SRC-" in outbound
 
 
-def test_service_sends_only_sanitized_messages_to_external_runtime(
-    normalized, tmp_path
-):
+def test_service_sends_only_sanitized_messages_to_external_runtime(normalized, tmp_path):
     context = normalized.model_copy(deep=True)
-    context.interactions[0].text = (
-        "Мария Иванова, maria@example.com, работает над Проектом Альфа."
-    )
+    context.interactions[0].text = "Мария Иванова, maria@example.com, работает над Проектом Альфа."
     original_ref = context.interactions[0].source_ref
     original_name = context.employee.display_name
     original_key = context.employee.jira_key
@@ -430,7 +406,6 @@ def test_service_sends_only_sanitized_messages_to_external_runtime(
     external = CapturingBadExternalLlm()
     service = CuratorService(
         Settings(
-            data_dir=tmp_path,
             llm_runtime="external",
             external_llm_enabled=True,
         ),
@@ -444,7 +419,6 @@ def test_service_sends_only_sanitized_messages_to_external_runtime(
             SessionState(context=context),
             "external-sanitized-boundary",
             set(),
-            True,
         )
     )
 
@@ -463,12 +437,8 @@ def test_service_sends_only_sanitized_messages_to_external_runtime(
     assert "data_quality" in result
 
 
-def test_external_client_uses_structured_output_and_never_logs_key(
-    monkeypatch, caplog
-):
-    monkeypatch.setattr(
-        "ai_curator.external_llm.httpx.AsyncClient", FakeExternalHttpClient
-    )
+def test_external_client_uses_structured_output_and_never_logs_key(monkeypatch, caplog):
+    monkeypatch.setattr("ai_curator.external_llm.httpx.AsyncClient", FakeExternalHttpClient)
     client = ExternalOpenAIClient(
         "https://api.openai.com/v1",
         "gpt-4.1-mini",
@@ -482,9 +452,7 @@ def test_external_client_uses_structured_output_and_never_logs_key(
 
     with caplog.at_level(logging.INFO, logger="ai_curator.external_llm"):
         health = asyncio.run(client.health())
-        result = asyncio.run(
-            client.generate(messages, {"type": "object"}, asyncio.Event())
-        )
+        result = asyncio.run(client.generate(messages, {"type": "object"}, asyncio.Event()))
 
     assert health == {"ok": True, "status": 200}
     assert result == {"result": "готово"}
@@ -494,17 +462,87 @@ def test_external_client_uses_structured_output_and_never_logs_key(
     assert payload["max_completion_tokens"] == 6000
     assert payload["response_format"]["type"] == "json_schema"
     assert payload["response_format"]["json_schema"]["strict"] is True
-    assert "sk-test-secret" not in "\n".join(
-        str(record.__dict__) for record in caplog.records
+    assert "reasoning_effort" not in payload
+    assert "sk-test-secret" not in "\n".join(str(record.__dict__) for record in caplog.records)
+
+
+def test_yandex_client_sends_the_catalog_and_key_on_both_routes(monkeypatch):
+    monkeypatch.setattr("ai_curator.external_llm.httpx.AsyncClient", FakeExternalHttpClient)
+    folder_id = "b1gexamplefolder"
+    model_uri = f"gpt://{folder_id}/qwen3.6-35b-a3b"
+    client = ExternalOpenAIClient(
+        "https://ai.api.cloud.yandex.net/v1",
+        model_uri,
+        "test-secret",
+        30,
+        temperature=0.2,
+        max_tokens=6000,
     )
+
+    assert asyncio.run(client.health())["ok"]
+    assert asyncio.run(client.generate([], {"type": "object"}, asyncio.Event())) == {
+        "result": "готово"
+    }
+    assert FakeExternalHttpClient.health_headers["Authorization"] == "Api-Key test-secret"
+    assert FakeExternalHttpClient.health_headers["x-project"] == folder_id
+    assert FakeExternalHttpClient.request_headers["Authorization"] == "Api-Key test-secret"
+    assert FakeExternalHttpClient.request_headers["OpenAI-Project"] == folder_id
+    assert FakeExternalHttpClient.request_headers["x-data-logging-enabled"] == "false"
+    assert FakeExternalHttpClient.request_payload["model"] == model_uri
+    assert FakeExternalHttpClient.request_payload["response_format"]["type"] == "json_schema"
+    assert FakeExternalHttpClient.request_payload["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "content", "expected_code"),
+    [
+        ("length", None, "EXTERNAL_LLM_OUTPUT_TRUNCATED"),
+        ("length", '{"result":', "EXTERNAL_LLM_OUTPUT_TRUNCATED"),
+        ("stop", None, "EXTERNAL_LLM_EMPTY_RESPONSE"),
+        ("stop", "не JSON", "EXTERNAL_LLM_INVALID_JSON"),
+    ],
+)
+def test_external_response_errors_distinguish_truncation_from_bad_json(
+    monkeypatch, finish_reason, content, expected_code
+):
+    async def respond(self, url, payload, cancel_event, headers=None):
+        return httpx.Response(
+            200,
+            json={"choices": [{"finish_reason": finish_reason, "message": {"content": content}}]},
+        )
+
+    monkeypatch.setattr(ExternalOpenAIClient, "_post_completion", respond)
+    client = ExternalOpenAIClient(
+        "https://api.openai.com/v1",
+        "test-model",
+        "test-secret",
+        30,
+        temperature=0.2,
+        max_tokens=6000,
+    )
+    with pytest.raises(CuratorError) as caught:
+        asyncio.run(client.generate([], {"type": "object"}, asyncio.Event()))
+    assert caught.value.code == expected_code
+
+
+def test_yandex_client_requires_the_folder_in_the_model_uri():
+    with pytest.raises(CuratorError) as error:
+        ExternalOpenAIClient(
+            "https://ai.api.cloud.yandex.net/v1",
+            "qwen3.6-35b-a3b",
+            "test-secret",
+            30,
+            temperature=0.2,
+            max_tokens=6000,
+        )
+    assert error.value.code == "EXTERNAL_LLM_MODEL_INVALID"
 
 
 @pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
-def test_runtime_does_not_accept_unfiltered_injected_client(tmp_path, runtime):
+def test_runtime_does_not_accept_unfiltered_injected_client(runtime):
     with pytest.raises(ValueError):
         CuratorService(
             Settings(
-                data_dir=tmp_path,
                 llm_runtime=runtime,
                 external_llm_enabled=runtime == "external",
             ),

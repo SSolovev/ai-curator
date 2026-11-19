@@ -5,7 +5,6 @@ import json
 import logging
 import random
 import re
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -46,7 +45,9 @@ def _redact_response_text(text: str, token: str) -> str:
     return HTML_SECRET_RE.sub(r"\1[REDACTED]", text)
 
 
-def _response_preview(body: bytes, encoding: str | None, token: str, max_chars: int) -> tuple[str, bool]:
+def _response_preview(
+    body: bytes, encoding: str | None, token: str, max_chars: int
+) -> tuple[str, bool]:
     try:
         text = body.decode(encoding or "utf-8", errors="replace")
     except LookupError:
@@ -81,10 +82,13 @@ class JiraTransportConfig:
     log_response_max_chars: int = 4000
     max_response_bytes: int = 10_000_000
     max_retries: int = 2
+    max_pages: int = 100
 
 
 class JiraClient:
-    def __init__(self, config: JiraTransportConfig, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self, config: JiraTransportConfig, transport: httpx.AsyncBaseTransport | None = None
+    ):
         self.config = config
         base_url = validate_jira_url(config.base_url)
         verify: bool | str = validate_ca_path(config.ca_bundle_path) or True
@@ -117,9 +121,7 @@ class JiraClient:
     def _log_request(self, path: str, params: dict[str, Any] | None, attempt: int) -> None:
         if not self.config.log_request_response:
             return
-        request = self._client.build_request(
-            "GET", self._relative_path(path), params=params
-        )
+        request = self._client.build_request("GET", self._relative_path(path), params=params)
         logger.info(
             "jira_request_payload",
             extra={
@@ -127,7 +129,9 @@ class JiraClient:
                 "http_method": "GET",
                 "request_path": request.url.path,
                 "request_url": str(request.url),
-                "request_params": json.dumps(params or {}, ensure_ascii=False, separators=(",", ":")),
+                "request_params": json.dumps(
+                    params or {}, ensure_ascii=False, separators=(",", ":")
+                ),
                 "request_body": None,
             },
         )
@@ -162,9 +166,16 @@ class JiraClient:
                 async with self._client.stream(
                     "GET", self._relative_path(path), params=params
                 ) as response:
-                    if response.status_code in {429, 500, 502, 503, 504} and attempt < self.config.max_retries:
+                    if (
+                        response.status_code in {429, 500, 502, 503, 504}
+                        and attempt < self.config.max_retries
+                    ):
                         retry_after = response.headers.get("Retry-After")
-                        delay = min(float(retry_after), 5.0) if retry_after and retry_after.isdigit() else 0.25 * 2**attempt
+                        delay = (
+                            min(float(retry_after), 5.0)
+                            if retry_after and retry_after.isdigit()
+                            else 0.25 * 2**attempt
+                        )
                         retry_body = await response.aread()
                         self._log_response(response, retry_body, attempt_number)
                         # Jitter is scheduling noise, not a security token.
@@ -218,12 +229,16 @@ class JiraClient:
                                 "status_code": response.status_code,
                                 "content_type": response.headers.get("Content-Type"),
                                 "request_path": response.request.url.path,
-                                "redirect_location": _safe_redirect_location(response.headers.get("Location")),
+                                "redirect_location": _safe_redirect_location(
+                                    response.headers.get("Location")
+                                ),
                                 "response_body": response_body,
                                 "response_truncated": response_truncated,
                             },
                         )
-                        raise CuratorError("JIRA_INVALID_JSON", "Jira вернула ответ неизвестного формата.", 502) from exc
+                        raise CuratorError(
+                            "JIRA_INVALID_JSON", "Jira вернула ответ неизвестного формата.", 502
+                        ) from exc
             except CuratorError:
                 raise
             except httpx.TimeoutException as exc:
@@ -231,12 +246,20 @@ class JiraClient:
                 if attempt < self.config.max_retries:
                     await asyncio.sleep(0.25 * 2**attempt)
                     continue
-                raise CuratorError("JIRA_TIMEOUT", "Jira не ответила вовремя. Проверьте VPN и повторите.", 504) from exc
+                raise CuratorError(
+                    "JIRA_TIMEOUT", "Jira не ответила вовремя. Проверьте VPN и повторите.", 504
+                ) from exc
             except httpx.TransportError as exc:
                 name = type(exc).__name__.lower()
                 if "ssl" in name or "cert" in str(exc).lower():
-                    raise CuratorError("JIRA_TLS", "Не удалось проверить TLS-сертификат Jira. Проверьте корпоративный CA bundle.", 502) from exc
-                raise CuratorError("JIRA_NETWORK", "Нет соединения с Jira. Проверьте VPN, proxy и адрес.", 502) from exc
+                    raise CuratorError(
+                        "JIRA_TLS",
+                        "Не удалось проверить TLS-сертификат Jira. Проверьте корпоративный CA bundle.",
+                        502,
+                    ) from exc
+                raise CuratorError(
+                    "JIRA_NETWORK", "Нет соединения с Jira. Проверьте VPN, proxy и адрес.", 502
+                ) from exc
         raise CuratorError("JIRA_NETWORK", "Нет соединения с Jira.", 502) from last_error
 
     async def myself(self) -> dict[str, Any]:
@@ -263,11 +286,13 @@ class JiraClient:
             )
         return data if isinstance(data, list) else []
 
-    async def search_pages(
-        self, *, jql: str, fields: list[str], page_size: int = 50, max_pages: int = 100
-    ) -> AsyncIterator[dict[str, Any]]:
+    async def search_all(
+        self, *, jql: str, fields: list[str], page_size: int = 50, max_pages: int | None = None
+    ) -> list[dict[str, Any]]:
+        results: list[dict[str, Any]] = []
         start_at = 0
-        for _ in range(max_pages):
+        pages = self.config.max_pages if max_pages is None else max_pages
+        for _ in range(pages):
             data = await self._request(
                 "/rest/api/2/search",
                 params={
@@ -278,35 +303,44 @@ class JiraClient:
                 },
             )
             if not isinstance(data, dict) or not isinstance(data.get("issues", []), list):
-                raise CuratorError("JIRA_INVALID_JSON", "Jira вернула неожиданный формат поиска.", 502)
-            yield data
+                raise CuratorError(
+                    "JIRA_INVALID_JSON", "Jira вернула неожиданный формат поиска.", 502
+                )
             issues = data.get("issues", [])
+            results.extend(issues)
             total = int(data.get("total", len(issues)))
             next_start = int(data.get("startAt", start_at)) + len(issues)
             if not issues or next_start >= total:
-                return
+                return results
             start_at = next_start
-        raise CuratorError("JIRA_PAGINATION_LIMIT", "Слишком много страниц Jira; уточните запрос.", 502)
+        raise CuratorError(
+            "JIRA_PAGINATION_LIMIT", "Слишком много страниц Jira; уточните запрос.", 502
+        )
 
-    async def search_all(self, **kwargs: Any) -> list[dict[str, Any]]:
-        issues: list[dict[str, Any]] = []
-        async for page in self.search_pages(**kwargs):
-            issues.extend(page.get("issues", []))
-        return issues
-
-    async def employee_list(self, *, billable_only: bool = False, query: str | None = None, page_size: int = 50) -> list[dict[str, Any]]:
+    async def employee_list(
+        self, *, billable_only: bool = False, query: str | None = None, page_size: int = 50
+    ) -> list[dict[str, Any]]:
         status = " AND status = Billable" if billable_only else ""
         # User query is applied locally; it never enters JQL.
         jql = f"Curators = currentUser() AND issuetype = Employee{status} ORDER BY status ASC, summary ASC"
-        issues = await self.search_all(jql=jql, fields=["summary", "status", "issuetype"], page_size=page_size)
+        issues = await self.search_all(
+            jql=jql, fields=["summary", "status", "issuetype"], page_size=page_size
+        )
         if query:
             needle = query.casefold().strip()
-            issues = [i for i in issues if needle in str(i.get("key", "")).casefold() or needle in str(i.get("fields", {}).get("summary", "")).casefold()]
+            issues = [
+                i
+                for i in issues
+                if needle in str(i.get("key", "")).casefold()
+                or needle in str(i.get("fields", {}).get("summary", "")).casefold()
+            ]
         return issues
 
     async def employee_issue(self, key: str, fields: list[str]) -> dict[str, Any]:
         safe_key = validate_employee_key(key)
-        data = await self._request(f"/rest/api/2/issue/{safe_key}", params={"fields": ",".join(fields)})
+        data = await self._request(
+            f"/rest/api/2/issue/{safe_key}", params={"fields": ",".join(fields)}
+        )
         if self.config.log_employee_issue:
             logger.info(
                 "jira_employee_issue_response",
@@ -332,7 +366,9 @@ class JiraClient:
         )
         comments = data.get("comments", []) if isinstance(data, dict) else []
         if not isinstance(comments, list):
-            raise CuratorError("JIRA_INVALID_JSON", "Jira вернула неожиданный формат комментариев.", 502)
+            raise CuratorError(
+                "JIRA_INVALID_JSON", "Jira вернула неожиданный формат комментариев.", 502
+            )
         return [
             {field: comment[field] for field in ANALYSIS_COMMENT_FIELDS if field in comment}
             for comment in comments[:bounded_limit]

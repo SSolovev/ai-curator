@@ -22,11 +22,12 @@
 | `CURATOR_PII_FILTER_TIMEOUT_SECONDS` | `300` | timeout одного локального PII-вызова |
 | `CURATOR_PII_FILTER_BATCH_ITEMS` | `20` | максимум текстовых фрагментов в партии PII-проверки |
 | `CURATOR_PII_FILTER_BATCH_CHARS` | `12000` | text budget партии PII-проверки |
-| `CURATOR_LLM_TIMEOUT_SECONDS` | `240` | timeout generation |
+| `CURATOR_LLM_TIMEOUT_SECONDS` | `1500` в Compose, `240` при прямом запуске Python | таймаут отдельного запроса к основной модели в секундах |
 | `CURATOR_LLM_TEMPERATURE` | `0.2` | детерминированность и фактологическая устойчивость генерации |
 | `CURATOR_LLM_MAX_TOKENS` | `6000` | общий предел thinking и финального ответа |
-| `CURATOR_LLM_REASONING_EFFORT` | `none` | thinking-профиль Ollama: `none`, `low`, `medium`, `high`; для Gemma 4 по умолчанию отключён, чтобы reasoning не исчерпывал лимит ответа |
-| `CURATOR_LLM_DIRECT_PROMPT_CHARS` | `18000` | порог прямой генерации по суммарной длине сообщений и JSON Schema в символах; `0` включает предварительное сжатие всегда, когда есть комментарии |
+| `CURATOR_LLM_REASONING_EFFORT` | `none` | режим рассуждений Ollama (`none`, `low`, `medium`, `high`). Для Qwen в Yandex AI Studio значение `none` отключает рассуждения, остальные значения используют режим провайдера |
+| `CURATOR_LLM_DIRECT_PROMPT_CHARS` | `18000` | порог прямой генерации для llama.cpp и Ollama по суммарной длине сообщений и JSON Schema в символах |
+| `CURATOR_EXTERNAL_LLM_DIRECT_PROMPT_CHARS` | `36000` | такой же порог для внешнего API. В обоих случаях `0` включает предварительное сжатие при наличии комментариев |
 | `CURATOR_LLM_COMMENT_BATCH_CHARS` | `20000` | text budget партии извлечения; лимита количества комментариев нет |
 | `CURATOR_LLM_REPAIR_ENABLED` | `false` | повторная полная генерация после ошибки валидации |
 | `CURATOR_LLM_LOG_REQUEST_RESPONSE` | `false` | логировать точный уже отфильтрованный запрос и ответ основной модели для проверки обезличивания |
@@ -36,7 +37,7 @@
 | `CURATOR_JIRA_LOG_EMPLOYEE_ISSUE` | `false` | временно логировать ограниченный ответ выбранной Employee-задачи |
 | `CURATOR_JIRA_LOG_RESPONSE_MAX_CHARS` | `4000` | максимальная длина диагностического тела ответа |
 | `CURATOR_JIRA_PAGE_SIZE` | `50` | Jira page size, максимум 100 |
-| `CURATOR_JIRA_MAX_PAGES` | `100` | защита от бесконечной pagination |
+| `CURATOR_JIRA_MAX_PAGES` | `100` | максимум страниц на один поиск сотрудников или дочерних задач |
 | `CURATOR_JIRA_MAX_COMMENTS` | `50` | максимум 50 последних комментариев Employee-задачи для итогового синтеза, напрямую или после предварительного сжатия |
 | `CURATOR_MAX_COMMENT_CHARS` | `12000` | лимит одного комментария |
 | `CURATOR_MAX_CONTEXT_CHARS` | `80000` | лимит дополнительной feedback-истории; полученные комментарии не удаляются и сжимаются отдельным этапом |
@@ -96,7 +97,7 @@ CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b
 
 `CURATOR_JIRA_LOG_INVALID_RESPONSE_BODY=true` следует включать только на время диагностики. В лог попадёт до указанного лимита символов реального не-JSON ответа Jira; PAT и распространённые token/password-поля маскируются, но HTML может содержать персональные данные. После диагностики верните значение `false` и пересоздайте `app`.
 
-`CURATOR_JIRA_LOG_FIELD_CATALOG=true` записывает полный успешный ответ Jira `/rest/api/2/field` событием `jira_field_catalog_response`. Каталог может содержать внутренние названия и описания пользовательских полей, поэтому после сопоставления верните значение `false`.
+`CURATOR_JIRA_LOG_FIELD_CATALOG=true` запрашивает каталог Jira `/rest/api/2/field` после успешной проверки подключения и записывает его событием `jira_field_catalog_response`. Каталог может содержать внутренние названия и описания пользовательских полей, поэтому после сопоставления верните значение `false`.
 
 `CURATOR_JIRA_LOG_EMPLOYEE_ISSUE=true` записывает ограниченный mapped-полями ответ выбранной Employee-задачи событием `jira_employee_issue_response`. Этот ответ содержит фактические значения полей и может включать персональные данные. Флаг не расширяет запрос до `fields=*all`; после диагностики обязательно верните значение `false`.
 

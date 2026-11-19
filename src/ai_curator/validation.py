@@ -14,15 +14,29 @@ AGENDA_SCHEDULES = {
     4: ((0, 5), (5, 15), (15, 25), (25, 30)),
     5: ((0, 3), (3, 10), (10, 20), (20, 26), (26, 30)),
 }
+SOURCE_SECTIONS = ("mood_monitoring", "incomplete_mood_monitoring", "interactions", "feedback")
 
 
 def load_schema(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_model_schema(path: Path) -> dict[str, Any]:
+    """Remove fields that the server calculates after generation."""
+    schema = load_schema(path)
+    schema["required"].remove("data_quality")
+    del schema["properties"]["data_quality"]
+
+    agenda_item = schema["properties"]["agenda"]["items"]
+    for field in ("start_minute", "end_minute"):
+        agenda_item["required"].remove(field)
+        del agenda_item["properties"][field]
+    return schema
+
+
 def all_source_refs(context: dict[str, Any]) -> set[str]:
     refs: set[str] = set()
-    for section in ("mood_monitoring", "incomplete_mood_monitoring", "interactions", "feedback"):
+    for section in SOURCE_SECTIONS:
         for item in context.get(section, []):
             if isinstance(item, dict) and isinstance(item.get("source_ref"), str):
                 refs.add(item["source_ref"])
@@ -31,7 +45,7 @@ def all_source_refs(context: dict[str, Any]) -> set[str]:
 
 def source_dates(context: dict[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
-    for section in ("mood_monitoring", "incomplete_mood_monitoring", "interactions", "feedback"):
+    for section in SOURCE_SECTIONS:
         for item in context.get(section, []):
             if isinstance(item, dict) and item.get("source_ref") and item.get("date"):
                 result[item["source_ref"]] = str(item["date"])[:10]
@@ -112,7 +126,7 @@ def finalize_computed_fields(result: Any, context: dict[str, Any]) -> Any:
     return finalized
 
 
-def validate_result(result: Any, context: dict[str, Any], _schema: dict[str, Any]) -> dict[str, Any]:
+def validate_result(result: Any, context: dict[str, Any]) -> dict[str, Any]:
     """Validate only the minimal integrity guarantees retained by the application.
 
     The response schema is still supplied to the model as an output-format hint,
@@ -125,9 +139,7 @@ def validate_result(result: Any, context: dict[str, Any], _schema: dict[str, Any
     valid_refs = all_source_refs(context)
     for node in _walk(result):
         evidence = node.get("evidence")
-        if node.get("certainty") == "fact" and (
-            not isinstance(evidence, list) or not evidence
-        ):
+        if node.get("certainty") == "fact" and (not isinstance(evidence, list) or not evidence):
             raise CuratorError(
                 "LLM_EVIDENCE_REQUIRED",
                 "Фактический вывод модели не содержит источника.",
@@ -136,7 +148,8 @@ def validate_result(result: Any, context: dict[str, Any], _schema: dict[str, Any
         if not isinstance(evidence, list):
             continue
         for item in evidence:
-            if not isinstance(item, dict) or item.get("source_ref") not in valid_refs:
+            source_ref = item.get("source_ref") if isinstance(item, dict) else None
+            if not isinstance(source_ref, str) or source_ref not in valid_refs:
                 raise CuratorError(
                     "LLM_SOURCE_UNKNOWN",
                     "Модель сослалась на отсутствующий источник.",

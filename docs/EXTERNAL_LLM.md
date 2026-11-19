@@ -89,6 +89,23 @@ docker compose logs app --tail 100
 
 В «Модель и защита данных» должны одновременно быть доступны внешняя модель и `privacy_filter`. Если локальный фильтр unhealthy, генерация заблокирована до исправления.
 
+Порог прямого запроса к внешней модели задаёт `CURATOR_EXTERNAL_LLM_DIRECT_PROMPT_CHARS`. По умолчанию запрос с обезличенными комментариями отправляется напрямую при суммарной длине сообщений и схемы до 36 000 символов. Для более длинных запросов модель сначала извлекает события из комментариев.
+
+### Qwen3.6 35B через Yandex AI Studio
+
+Скопируйте идентификатор каталога и создайте API-ключ в этом же каталоге. Сохраните секретную часть ключа в `secrets/external_llm_api_key`. Для генерации нужна область действия `yc.ai.foundationModels.execute`, а для проверки через список моделей — `yc.ai.models.viewer`. [Быстрый старт AI Studio](https://aistudio.yandex.ru/ru/docs/ai-studio/quickstart/) · [Получение списка моделей](https://aistudio.yandex.ru/ru/docs/ai-studio/operations/models/get)
+
+В `.env` замените значения ниже и подставьте свой идентификатор каталога вместо `FOLDER_ID`.
+
+```dotenv
+CURATOR_LLM_RUNTIME=external
+CURATOR_EXTERNAL_LLM_ENABLED=true
+CURATOR_EXTERNAL_LLM_BASE_URL=https://ai.api.cloud.yandex.net/v1
+CURATOR_EXTERNAL_LLM_MODEL=gpt://FOLDER_ID/qwen3.6-35b-a3b
+```
+
+Клиент определяет каталог по URI модели, передаёт его в заголовках Яндекса и отключает логирование содержимого запроса через `x-data-logging-enabled: false`. Запустите `./scripts/start.sh`, проверьте основную модель и локальный фильтр в блоке «Модель и защита данных». Затем сформируйте сценарий на демо Jira, чтобы проверить совместимость структурированного ответа. [Каталог моделей](https://aistudio.yandex.ru/ru/docs/ai-studio/concepts/generation/models) · [Логирование запросов](https://aistudio.yandex.ru/ru/docs/ai-studio/operations/disable-logging)
+
 ## Возврат к локальной модели
 
 Например, для Qwen 8B:

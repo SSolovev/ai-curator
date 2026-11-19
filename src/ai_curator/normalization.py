@@ -34,8 +34,12 @@ MM_FIELDS = {
 MEETING_RE = re.compile(r"\{meeting-type\}(.*?)\{meeting-type\}", re.IGNORECASE | re.DOTALL)
 CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 RELEVANCE_PATTERNS = {
-    "agreement": re.compile(r"\b(договорил|согласовал|следующ|срок|дедлайн|action|follow.?up)\w*", re.I),
-    "work_signal": re.compile(r"\b(блокер|проблем|сложност|перегруз|поддержк|помощ|риск|конфликт)\w*", re.I),
+    "agreement": re.compile(
+        r"\b(договорил|согласовал|следующ|срок|дедлайн|action|follow.?up)\w*", re.I
+    ),
+    "work_signal": re.compile(
+        r"\b(блокер|проблем|сложност|перегруз|поддержк|помощ|риск|конфликт)\w*", re.I
+    ),
     "kpi": re.compile(r"\bKPI\b", re.I),
 }
 
@@ -74,7 +78,12 @@ def clean_jira_text(value: Any, max_chars: int = 12_000) -> str:
     text = re.sub(r"(?m)^\s*h[1-6]\.\s*", "", text)
     text = re.sub(r"(?m)^\s*[#*+-]+\s+", "• ", text)
     text = re.sub(r"(?m)^\s*\|\|?", "", text)
-    text = re.sub(r"\{(?:color(?::[^}]*)?|panel(?::[^}]*)?|quote|noformat|code(?::[^}]*)?)\}", "", text, flags=re.I)
+    text = re.sub(
+        r"\{(?:color(?::[^}]*)?|panel(?::[^}]*)?|quote|noformat|code(?::[^}]*)?)\}",
+        "",
+        text,
+        flags=re.I,
+    )
     text = re.sub(r"(?<!\w)[*_~^]{1,2}([^\n]+?)[*_~^]{1,2}(?!\w)", r"\1", text)
     text = CONTROL_RE.sub("", html.unescape(text))
     text = re.sub(r"[ \t]+", " ", text)
@@ -205,7 +214,9 @@ def normalize_children(
     moods: list[MoodMonitoring] = []
     feedback: list[Feedback] = []
     mood_names = {name.casefold() for name in (mood_issue_type_names or ["Mood Monitoring"])}
-    feedback_names = {name.casefold() for name in (feedback_issue_type_names or ["Feedback", "KPI"])}
+    feedback_names = {
+        name.casefold() for name in (feedback_issue_type_names or ["Feedback", "KPI"])
+    }
     seen: set[str] = set()
     for issue in issues:
         key = str(issue.get("key", "")).strip()
@@ -222,7 +233,9 @@ def normalize_children(
             status = _status_name(fields)
             status_fold = (status or "").casefold()
             closed = status_fold in {"closed", "done", "resolved", "закрыт", "выполнено", "готово"}
-            scores = MoodScores(**{name: _score(fields.get(field_id)) for name, field_id in MM_FIELDS.items()})
+            scores = MoodScores(
+                **{name: _score(fields.get(field_id)) for name, field_id in MM_FIELDS.items()}
+            )
             moods.append(
                 MoodMonitoring(
                     source_ref=source_ref,
@@ -230,12 +243,15 @@ def normalize_children(
                     date=created,
                     status=status,
                     scores=scores,
-                    comment=clean_jira_text(fields.get(mapping.feedback_comments or ""), max_chars) or None,
+                    comment=clean_jira_text(fields.get(mapping.feedback_comments or ""), max_chars)
+                    or None,
                     closed=closed,
                 )
             )
         elif issue_type in feedback_names:
-            text = clean_jira_text(fields.get(mapping.feedback_comments or "") or fields.get("description"), max_chars)
+            text = clean_jira_text(
+                fields.get(mapping.feedback_comments or "") or fields.get("description"), max_chars
+            )
             if text:
                 feedback.append(
                     Feedback(
@@ -251,7 +267,10 @@ def normalize_children(
 
 
 def calculate_mm_dynamics(moods: list[MoodMonitoring]) -> list[MMChange]:
-    comparable = sorted([item for item in moods if item.closed and item.date], key=lambda item: item.date or date.min)
+    comparable = sorted(
+        [item for item in moods if item.closed and item.date],
+        key=lambda item: item.date or date.min,
+    )
     changes: list[MMChange] = []
     for previous, current in zip(comparable, comparable[1:], strict=False):
         prev_scores = previous.scores.model_dump()
@@ -273,14 +292,18 @@ def calculate_mm_dynamics(moods: list[MoodMonitoring]) -> list[MMChange]:
 
 
 def select_context(
-    moods: list[MoodMonitoring], interactions: list[Interaction], feedback: list[Feedback], max_context_chars: int
-) -> tuple[list[MoodMonitoring], list[MoodMonitoring], list[Interaction], list[Feedback], ContextSelection]:
+    moods: list[MoodMonitoring],
+    interactions: list[Interaction],
+    feedback: list[Feedback],
+    max_context_chars: int,
+) -> tuple[
+    list[MoodMonitoring], list[MoodMonitoring], list[Interaction], list[Feedback], ContextSelection
+]:
     valid_closed = [m for m in moods if m.closed and m.date]
     selected_moods = valid_closed[:3]
     incomplete = [m for m in moods if not (m.closed and m.date)]
     selected_interactions = list(interactions)
     selected_feedback = feedback[:10]
-    included = [x.source_ref for x in [*selected_moods, *selected_interactions, *selected_feedback]]
     all_refs = [x.source_ref for x in [*moods, *interactions, *feedback]]
     warnings: list[str] = []
     truncated = len(valid_closed) > 3 or len(feedback) > 10
@@ -288,30 +311,37 @@ def select_context(
         warnings.append("Контекст сокращён детерминированно по дате и типу.")
     if incomplete:
         warnings.append("Незавершённые MM показаны отдельно и не участвуют в динамике.")
-    # Jira comments are never removed here: the generation pipeline compacts every
-    # fetched comment in bounded batches before building the final model context.
-    # The legacy text budget only limits the additional feedback-subtask history.
-    while (
-        sum(len(i.text) for i in selected_interactions)
-        + sum(len(f.text) for f in selected_feedback)
-        > max_context_chars
-        and selected_feedback
-    ):
-        selected_feedback.pop()
+    # Keep all fetched Jira comments. Only the additional feedback uses this budget.
+    text_chars = sum(len(item.text) for item in selected_interactions + selected_feedback)
+    while selected_feedback and text_chars > max_context_chars:
+        text_chars -= len(selected_feedback.pop().text)
         truncated = True
     included = [x.source_ref for x in [*selected_moods, *selected_interactions, *selected_feedback]]
-    return selected_moods, incomplete, selected_interactions, selected_feedback, ContextSelection(
-        included_source_refs=included,
-        excluded_source_refs=sorted(set(all_refs) - set(included)),
-        warnings=warnings,
-        truncated=truncated,
+    return (
+        selected_moods,
+        incomplete,
+        selected_interactions,
+        selected_feedback,
+        ContextSelection(
+            included_source_refs=included,
+            excluded_source_refs=sorted(set(all_refs) - set(included)),
+            warnings=warnings,
+            truncated=truncated,
+        ),
     )
 
 
 def normalize_bundle(
-    *, employee_issue: dict[str, Any], comments: list[dict[str, Any]], children: list[dict[str, Any]],
-    mapping: FieldMapping, hmac_key: bytes, current_time: datetime, max_comment_chars: int = 12_000,
-    max_context_chars: int = 80_000, include_display_name: bool = False,
+    *,
+    employee_issue: dict[str, Any],
+    comments: list[dict[str, Any]],
+    children: list[dict[str, Any]],
+    mapping: FieldMapping,
+    hmac_key: bytes,
+    current_time: datetime,
+    max_comment_chars: int = 12_000,
+    max_context_chars: int = 80_000,
+    include_display_name: bool = False,
     mood_issue_type_names: list[str] | None = None,
     feedback_issue_type_names: list[str] | None = None,
 ) -> NormalizedContext:
@@ -325,8 +355,8 @@ def normalize_bundle(
         mood_issue_type_names,
         feedback_issue_type_names,
     )
-    selected_moods, incomplete, selected_interactions, selected_feedback, selection = select_context(
-        moods, interactions, feedback, max_context_chars
+    selected_moods, incomplete, selected_interactions, selected_feedback, selection = (
+        select_context(moods, interactions, feedback, max_context_chars)
     )
     employee = Employee(
         employee_ref=employee_reference(key, hmac_key),
@@ -339,8 +369,14 @@ def normalize_bundle(
         department=_plain_value(fields.get(mapping.department or "")),
         attestation_date=parse_date(fields.get(mapping.attestation_date or "")),
         last_meaningful_interaction_at=interactions[0].date if interactions else None,
-        jira_recorded_risk=JiraRecordedRisk(level=_plain_value(fields.get(mapping.risk or "")), type=_plain_value(fields.get(mapping.risk_type or ""))),
-        jira_recorded_value=JiraRecordedValue(level=_plain_value(fields.get(mapping.value or "")), types=_multi_value(fields.get(mapping.value_type or ""))),
+        jira_recorded_risk=JiraRecordedRisk(
+            level=_plain_value(fields.get(mapping.risk or "")),
+            type=_plain_value(fields.get(mapping.risk_type or "")),
+        ),
+        jira_recorded_value=JiraRecordedValue(
+            level=_plain_value(fields.get(mapping.value or "")),
+            types=_multi_value(fields.get(mapping.value_type or "")),
+        ),
     )
     return NormalizedContext(
         generated_at=current_time,
@@ -358,7 +394,9 @@ def normalize_bundle(
 def apply_exclusions(context: NormalizedContext, excluded: set[str]) -> NormalizedContext:
     copy = context.model_copy(deep=True)
     copy.mood_monitoring = [x for x in copy.mood_monitoring if x.source_ref not in excluded]
-    copy.incomplete_mood_monitoring = [x for x in copy.incomplete_mood_monitoring if x.source_ref not in excluded]
+    copy.incomplete_mood_monitoring = [
+        x for x in copy.incomplete_mood_monitoring if x.source_ref not in excluded
+    ]
     copy.interactions = [x for x in copy.interactions if x.source_ref not in excluded]
     copy.feedback = [x for x in copy.feedback if x.source_ref not in excluded]
     retained = {
@@ -370,7 +408,11 @@ def apply_exclusions(context: NormalizedContext, excluded: set[str]) -> Normaliz
             *copy.feedback,
         ]
     }
-    copy.mood_dynamics = [d for d in copy.mood_dynamics if d.from_source_ref in retained and d.to_source_ref in retained]
+    copy.mood_dynamics = [
+        d
+        for d in copy.mood_dynamics
+        if d.from_source_ref in retained and d.to_source_ref in retained
+    ]
     # Do not disclose even identifiers for records that are outside the selected model context.
     # The UI keeps the full preview separately in session memory.
     copy.context_selection.excluded_source_refs = []

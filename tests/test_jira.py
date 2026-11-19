@@ -71,6 +71,23 @@ def test_jira_context_path_is_preserved():
     assert requests[0].url.path == "/jira/rest/api/2/myself"
 
 
+def test_employee_search_honors_configured_page_limit():
+    requested_pages = []
+
+    def handler(request: httpx.Request):
+        requested_pages.append(request.url.params["startAt"])
+        return httpx.Response(200, json={"total": 2, "issues": [{"key": "DEMO-1"}]})
+
+    async def scenario():
+        async with JiraClient(config(max_pages=1), transport=httpx.MockTransport(handler)) as jira:
+            await jira.employee_list(page_size=1)
+
+    with pytest.raises(CuratorError) as caught:
+        run(scenario())
+    assert caught.value.code == "JIRA_PAGINATION_LIMIT"
+    assert requested_pages == ["0"]
+
+
 @pytest.mark.parametrize("key", ["DEMO-1 OR 1=1", "demo';DROP-1", "A-0", "../DEMO-1", "DEMO-1 ORDER BY"])
 def test_employee_key_blocks_jql_and_path_injection(key):
     with pytest.raises(CuratorError) as caught:

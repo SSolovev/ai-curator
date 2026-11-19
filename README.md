@@ -6,15 +6,15 @@ Privacy-first приложение для подготовки бережной 
 
 ## Быстрый старт
 
-Нужны Docker Desktop (Windows 11/WSL2 — основной сценарий; также Linux/macOS), 32 ГБ RAM и около 12 ГБ свободного диска.
+Нужны Docker с Compose, запущенная Ollama на компьютере, 32 ГБ оперативной памяти и минимум 16 ГБ свободного места. Docker запускает приложение и основную модель по умолчанию. Ollama запускает обязательную модель обезличивания.
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 ./scripts/prepare-model.sh
 ./scripts/prepare-ollama.sh pii-filter
-cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+test -f secrets/pii_dictionary.txt || cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
 # заполните словарь организационными именами, логинами и идентификаторами
-./scripts/start.sh
+CURATOR_LLM_RUNTIME=llama_cpp ./scripts/start.sh
 ```
 
 Откройте <http://127.0.0.1:8080>. Jira PAT введите в форме: по умолчанию он останется только в памяти сессии. Для Docker secret создайте `secrets/jira_token` с правами только владельца; этот путь исключён из Git.
@@ -31,18 +31,20 @@ Mock Jira запускается вместе с приложением. На п
 
 ## Разработка и тесты
 
+Команды выполняются из корня проекта. Для тестов достаточно Python 3.12. Тесты используют вымышленные данные и подменяют запросы к моделям.
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 ./scripts/test.sh
 ```
 
-Container smoke-test: `./scripts/smoke-container.sh`. Model benchmark после подготовки весов: `./scripts/benchmark-model.sh`.
+Команда `./scripts/smoke-container.sh` собирает Docker-образ и проверяет запуск и ответ `/healthz`. После подготовки весов `./scripts/benchmark-model.sh` проверяет основную модель отдельно.
 
 ## Важные каталоги
 
-- `src/ai_curator` — приложение и адаптеры;
-- `prompts` и `schemas` — версионируемые LLM-контракты;
-- `tests/fixtures` — обезличенный golden-кейс;
-- `models` — локальные веса (не входят в репозиторий/образ);
-- mapping Jira-полей зафиксирован в коде; исходные персональные данные автоматически не сохраняются.
+- `src/ai_curator/main.py` содержит маршруты FastAPI, а `service.py` связывает Jira, обработку контекста и модели.
+- `src/ai_curator/static/` содержит HTML, корпоративную палитру и JavaScript интерфейса.
+- `prompts/` и `schemas/` содержат инструкции моделям и формат ответа.
+- `mock_jira/` и `tests/fixtures/` содержат демо Jira и вымышленные данные для проверок.
+- `models/` содержит инструкции Ollama и контрольную сумму Docker-модели. Веса моделей загружаются отдельно.

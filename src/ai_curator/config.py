@@ -8,6 +8,8 @@ from urllib.parse import urlsplit
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .domain import ModelRuntime
+
 
 class Settings(BaseSettings):
     """Non-secret configuration. Secrets are read separately from mounted files."""
@@ -18,7 +20,7 @@ class Settings(BaseSettings):
     port: int = 8080
     production: bool = True
     allowed_hosts: list[str] = ["127.0.0.1", "localhost", "testserver"]
-    llm_runtime: Literal["llama_cpp", "ollama", "external"] = "llama_cpp"
+    llm_runtime: ModelRuntime = "llama_cpp"
     llm_base_url: str = "http://model:8080"
     llm_model: str = "local-model"
     ollama_base_url: str = "http://host.docker.internal:11434"
@@ -27,6 +29,7 @@ class Settings(BaseSettings):
     external_llm_base_url: str = "https://api.openai.com/v1"
     external_llm_model: str = "gpt-4.1-mini"
     external_llm_api_key_file: Path = Path("/secrets/external_llm_api_key")
+    external_llm_direct_prompt_chars: int = Field(default=36_000, ge=0)
     pii_filter_base_url: str = "http://host.docker.internal:11434"
     pii_filter_model: str = "ai-curator-pii-gemma3-4b"
     pii_filter_dictionary_file: Path = Path("/secrets/pii_dictionary.txt")
@@ -56,7 +59,6 @@ class Settings(BaseSettings):
     max_jira_response_bytes: int = Field(default=10_000_000, ge=100_000, le=50_000_000)
     token_file: Path = Path("/run/secrets/jira_token")
     hmac_key_file: Path = Path("/run/secrets/hmac_key")
-    data_dir: Path = Path("./data")
     mood_issue_type_names: list[str] = ["Mood Monitoring"]
     feedback_issue_type_names: list[str] = ["Feedback", "KPI"]
 
@@ -110,9 +112,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def external_runtime_requires_explicit_opt_in(self) -> Settings:
         if self.llm_runtime == "external" and not self.external_llm_enabled:
-            raise ValueError(
-                "external runtime requires CURATOR_EXTERNAL_LLM_ENABLED=true"
-            )
+            raise ValueError("external runtime requires CURATOR_EXTERNAL_LLM_ENABLED=true")
         secret_paths = [self.pii_filter_dictionary_file]
         if self.llm_runtime == "external":
             secret_paths.append(self.external_llm_api_key_file)
