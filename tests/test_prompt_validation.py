@@ -201,9 +201,9 @@ def test_short_history_goes_directly_to_final_generation(
 @pytest.mark.parametrize(
     ("runtime", "comment_chars", "expects_extraction"),
     [
-        ("llama_cpp", 1500, True),
-        ("ollama", 1500, True),
-        ("external", 1500, False),
+        ("llama_cpp", 1250, True),
+        ("ollama", 1250, True),
+        ("external", 1250, False),
         ("external", 3500, True),
     ],
 )
@@ -230,7 +230,7 @@ def test_direct_prompt_limit_depends_on_runtime(
 
 @pytest.mark.parametrize(
     ("comment_chars", "feedback_chars", "expected_batches"),
-    [(1000, 0, [12]), (2000, 0, [10, 2]), (0, 20_000, [12])],
+    [(1000, 0, [15]), (2000, 0, [10, 5]), (0, 20_000, [15])],
 )
 def test_large_prompt_extracts_all_comments_in_batches(
     normalized,

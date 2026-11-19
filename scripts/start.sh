@@ -57,6 +57,9 @@ case "$runtime" in
   *) fail "Неизвестный runtime $runtime. Допустимо: llama_cpp, ollama или external." ;;
 esac
 
+# Build the image shared by app and mock-jira before stopping the running app.
+docker compose build app
+
 docker compose stop app >/dev/null 2>&1 || true
 if [ "$runtime" != llama_cpp ]; then
   docker compose --profile llama stop model >/dev/null 2>&1 || true
@@ -66,8 +69,8 @@ for model in "$main_model" "$pii_model" ai-curator-qwen3-4b ai-curator-qwen3-8b 
 done
 
 if [ "$runtime" = llama_cpp ]; then
-  docker compose --profile llama --profile demo up --build -d app model mock-jira
+  docker compose --profile llama --profile demo up --no-build -d app model mock-jira
 else
-  docker compose --profile demo up --build -d --no-deps app mock-jira
+  docker compose --profile demo up --no-build -d --no-deps app mock-jira
 fi
 printf 'ИИ-Куратор запускается (%s). Откройте http://127.0.0.1:%s\n' "$runtime" "$port"

@@ -1,6 +1,6 @@
 # Конфигурация
 
-Все обычные параметры имеют prefix `CURATOR_`. Секреты не задаются env-переменными.
+Настройки приложения читаются из окружения процесса. При штатном запуске Docker Compose подставляет значения из `.env` или окружения запуска в параметры, перечисленные в `compose.yaml`. Например, `CURATOR_JIRA_PAGE_SIZE`, `CURATOR_MAX_COMMENT_CHARS`, `CURATOR_MAX_CONTEXT_CHARS`, `CURATOR_MAX_JIRA_RESPONSE_BYTES` и имена типов дочерних задач сейчас используют значения Python по умолчанию в Compose. Для их изменения в Docker передайте переменные контейнеру через `environment`. Секреты хранятся в файлах.
 
 | Параметр | Default | Назначение |
 |---|---:|---|
@@ -9,7 +9,7 @@
 | `CURATOR_ALLOWED_HOSTS` | localhost/loopback | Trusted Host allowlist |
 | `CURATOR_LLM_RUNTIME` | `llama_cpp` | единственный runtime процесса: `llama_cpp`, `ollama` или `external` |
 | `CURATOR_LLM_BASE_URL` | `http://model:8080` | адрес llama.cpp; внешние host отклоняются |
-| `CURATOR_LLM_MODEL` | `local-model` | model name llama.cpp для API |
+| `CURATOR_LLM_MODEL` | `Qwen3-4B-Q4_K_M.gguf` в Compose, `local-model` при прямом запуске Python | имя модели llama.cpp для API |
 | `CURATOR_OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | адрес native Ollama с точки зрения app container |
 | `CURATOR_OLLAMA_MODEL` | `ai-curator-gemma4-12b` | основной локальный тег Ollama; `ai-curator-qwen3-8b` остаётся более лёгкой альтернативой |
 | `CURATOR_EXTERNAL_LLM_ENABLED` | `false` | обязательное явное разрешение runtime `external` |
@@ -59,9 +59,9 @@ CURATOR_LLM_RUNTIME=ollama
 - `ollama` — выбранная через `CURATOR_OLLAMA_MODEL` модель в native Ollama с Metal на Apple Silicon;
 - `external` — внешний OpenAI-compatible HTTPS API.
 
-Перед каждым runtime работает один и тот же обязательный локальный PII- и словарный фильтр. Поэтому native Ollama, тег `ai-curator-pii-gemma3-4b` и непустой `secrets/pii_dictionary.txt` требуются даже для `llama_cpp`.
+Во всех режимах требуется локальная Ollama с тегом из `CURATOR_PII_FILTER_MODEL` и непустой словарь. Значения в примере конфигурации — `ai-curator-pii-gemma3-4b` и `secrets/pii_dictionary.txt`.
 
-Runtime нельзя менять из браузера и нельзя менять без перезапуска. Backend создаёт только один выбранный адаптер. `scripts/start.*` перед запуском останавливает контейнер `llama.cpp` для Ollama, а для `llama_cpp` выгружает AI Curator-модели из памяти Ollama. Фоновый процесс Ollama не завершается целиком, потому что им могут пользоваться другие приложения.
+Режим выбирается при старте backend. `scripts/start.*` останавливает контейнер `llama.cpp` при выборе `ollama` или `external` и освобождает известные теги ИИ-Куратора в Ollama перед новым запуском. Процесс Ollama продолжает работать.
 
 Сначала всегда подготовьте PII-фильтр, затем нужную основную модель Ollama, если выбран runtime `ollama`:
 

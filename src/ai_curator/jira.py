@@ -375,6 +375,44 @@ class JiraClient:
             if isinstance(comment, dict)
         ]
 
+    async def add_comment(self, key: str, body: str) -> str:
+        safe_key = validate_employee_key(key)
+        path = self._relative_path(f"/rest/api/2/issue/{safe_key}/comment")
+        unconfirmed = CuratorError(
+            "JIRA_COMMENT_UNCONFIRMED",
+            "Публикация не подтверждена. Проверьте комментарии в Jira перед повторной отправкой.",
+            502,
+        )
+        # Jira may save a comment even if the response is lost. A POST is sent only once.
+        try:
+            response = await self._client.post(path, json={"body": body})
+        except httpx.HTTPError as exc:
+            raise unconfirmed from exc
+        if response.status_code == 403:
+            raise CuratorError(
+                "JIRA_COMMENT_FORBIDDEN",
+                "В Jira нет права добавлять комментарии в эту задачу.",
+                403,
+            )
+        if response.status_code == 400:
+            raise CuratorError(
+                "JIRA_COMMENT_REJECTED",
+                "Jira отклонила комментарий. Проверьте размер и текст.",
+                400,
+            )
+        if 400 <= response.status_code < 500:
+            raise jira_http_error(response.status_code)
+        if response.status_code != 201:
+            raise unconfirmed
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise unconfirmed from exc
+        comment_id = data.get("id") if isinstance(data, dict) else None
+        if not isinstance(comment_id, str) or not comment_id:
+            raise unconfirmed
+        return comment_id
+
     async def child_issues(
         self, key: str, fields: list[str], page_size: int = 50
     ) -> list[dict[str, Any]]:

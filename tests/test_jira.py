@@ -71,6 +71,28 @@ def test_jira_context_path_is_preserved():
     assert requests[0].url.path == "/jira/rest/api/2/myself"
 
 
+def test_add_comment_preserves_context_path_and_does_not_retry_an_unconfirmed_post():
+    requests = []
+
+    def handler(request: httpx.Request):
+        requests.append(request)
+        return httpx.Response(503, json={"errorMessages": ["Service unavailable"]})
+
+    async def scenario():
+        jira_config = config(base_url="https://project.gpb.tech/jira", max_retries=2)
+        async with JiraClient(jira_config, transport=httpx.MockTransport(handler)) as jira:
+            await jira.add_comment("DEMO-667", "!СГЕНЕРИРОВАНО ИИ!\n\nТекст комментария.")
+
+    with pytest.raises(CuratorError) as caught:
+        run(scenario())
+
+    assert caught.value.code == "JIRA_COMMENT_UNCONFIRMED"
+    assert len(requests) == 1
+    assert requests[0].method == "POST"
+    assert requests[0].url.path == "/jira/rest/api/2/issue/DEMO-667/comment"
+    assert json.loads(requests[0].content)["body"] == "!СГЕНЕРИРОВАНО ИИ!\n\nТекст комментария."
+
+
 def test_employee_search_honors_configured_page_limit():
     requested_pages = []
 

@@ -6,8 +6,8 @@
 
 - Docker Desktop;
 - [Native Ollama](https://docs.ollama.com/quickstart);
-- 16 ГБ RAM достаточно для запуска одной из моделей, 32 ГБ даёт больший запас;
-- около 10 ГБ свободного места для Qwen либо 14 ГБ для Gemma вместе с Docker-образом;
+- ориентир по памяти — 32 ГБ с учётом Docker и локального фильтра. На системе с 16 ГБ проверьте обе модели на демо и следите за расходом памяти;
+- свободное место для основной модели, обязательного фильтра и Docker-образов. Для общей подготовки ориентируйтесь на 16 ГБ и оставьте запас, если храните несколько моделей;
 - файл проекта AI Curator.
 
 Все команды ниже выполняются из корневого каталога проекта.
@@ -49,7 +49,7 @@ CURATOR_OLLAMA_MODEL=ai-curator-gemma4-12b
 CURATOR_PII_FILTER_MODEL=ai-curator-pii-gemma3-4b
 CURATOR_PII_FILTER_DICTIONARY_FILE=/secrets/pii_dictionary.txt
 CURATOR_LLM_TEMPERATURE=0.2
-CURATOR_LLM_REASONING_EFFORT=low
+CURATOR_LLM_REASONING_EFFORT=none
 ```
 
 Контекст задаётся в Modelfile: Qwen использует 32K, а Gemma 4 — 16K. Gemma 4 поддерживает thinking, но по умолчанию приложение передаёт `reasoning_effort=none`: профиль `low` может потратить весь лимит ответа на reasoning и не сформировать JSON. Моделям Gemma 3 этот параметр не отправляется.
@@ -81,11 +81,13 @@ ls -lh models/Qwen3-8B-Q4_K_M.gguf
 d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785
 ```
 
-Проверка на macOS:
+Проверьте SHA-256 скачанного файла в терминале.
 
 ```bash
 shasum -a 256 models/Qwen3-8B-Q4_K_M.gguf
 ```
+
+В Linux можно использовать `sha256sum models/Qwen3-8B-Q4_K_M.gguf`, в PowerShell — `Get-FileHash models/Qwen3-8B-Q4_K_M.gguf -Algorithm SHA256`. Сверьте результат с контрольной суммой выше перед импортом модели.
 
 Для Gemma локальный GGUF вручную не нужен. Скрипт выполнит `ollama pull gemma4:12b` из официального каталога Ollama. Это Q4_K_M-пакет размером около 7,6 ГБ. Загрузка выполняется только при подготовке, а не при каждом старте приложения.
 
@@ -107,8 +109,16 @@ Jira PAT в этот файл записывать нельзя. PAT безоп�
 
 ```bash
 ./scripts/prepare-ollama.sh pii-filter
-cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
+test -f secrets/pii_dictionary.txt || cp docs/pii_dictionary.example.txt secrets/pii_dictionary.txt
 chmod 600 secrets/pii_dictionary.txt
+```
+
+Если в вашей копии проекта отсутствует `models/Modelfile.pii-gemma3-4b`, создайте этот файл с указанными параметрами и повторите подготовку фильтра.
+
+```text
+FROM gemma3:4b
+PARAMETER num_ctx 8192
+PARAMETER temperature 0
 ```
 
 Перед production замените примеры в словаре реальными организационными именами, логинами и идентификаторами.
@@ -166,14 +176,14 @@ CURATOR_OLLAMA_MODEL=ai-curator-qwen3-8b
 
 <http://127.0.0.1:8080>
 
-В блоке «Локальная модель» должно быть указано:
+В блоке «Модель и защита данных» основная модель должна показать:
 
 ```text
 Активный runtime: Ollama (Native)
-Готова: ai-curator-gemma4-12b
+Готова · ai-curator-gemma4-12b
 ```
 
-Для Qwen строка состояния содержит `ai-curator-qwen3-8b`.
+Для Qwen строка состояния содержит `ai-curator-qwen3-8b`. Отдельно нажмите «Проверить модель» рядом с моделью обезличивания и убедитесь, что её тег совпадает с `CURATOR_PII_FILTER_MODEL`.
 
 ## Переключение между Qwen и Gemma
 

@@ -55,8 +55,8 @@ def test_custom_fields_selection_nulls_and_dynamics(normalized):
     assert len([x for x in changes if x.metric == "it1_helps"]) == 0
 
 
-def test_latest_three_mm_and_all_fetched_jira_comments(normalized, golden_data):
-    assert len(normalized.interactions) == len(golden_data["comments"])
+def test_latest_three_mm_and_all_fetched_jira_comments(normalized, alexey_jira_data):
+    assert len(normalized.interactions) == len(alexey_jira_data["comments"])
     refs = {x.source_ref for x in normalized.interactions}
     assert "jira-comment:7010" in refs
     assert "jira-comment:7011" in refs
@@ -90,8 +90,8 @@ def test_hmac_reference_is_stable_and_name_hidden_by_default(normalized):
     assert normalized.employee.display_name is not None
 
 
-def test_prompt_injection_remains_untrusted_data(golden_data):
-    interactions = normalize_interactions(golden_data["comments"], 12000)
+def test_prompt_injection_remains_untrusted_data(alexey_jira_data):
+    interactions = normalize_interactions(alexey_jira_data["comments"], 12000)
     attack = next(x for x in interactions if x.source_ref == "jira-comment:7012")
     assert "system prompt" in attack.text
     assert attack.type == "unknown"

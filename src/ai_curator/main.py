@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import Settings, get_settings
-from .domain import ConnectionInput, ExportInput, GenerateInput
+from .domain import ConnectionInput, ExportInput, GenerateInput, PublishCommentInput
 from .errors import CuratorError
 from .export import markdown_export
 from .logging_config import configure_logging, correlation_id_var
@@ -289,7 +289,8 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
 
     @app.get("/api/generate/{generation_id}/result")
     async def generation_result(request: Request, generation_id: str):
-        job = generation_job(state(request), generation_id)
+        session = state(request)
+        job = generation_job(session, generation_id)
         if job.status == "running":
             return JSONResponse(job.status_payload(), status_code=202)
         if job.status != "succeeded" or job.result is None:
@@ -301,7 +302,16 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             "generation_id": generation_id,
             "status": job.status,
             "result": job.result,
+            "jira_issue_key": (
+                job.jira_issue_key if job.jira_connection is session.jira_connection else None
+            ),
         }
+
+    @app.post("/api/generate/{generation_id}/comment")
+    async def publish_comment(request: Request, generation_id: str, body: PublishCommentInput):
+        session = state(request)
+        job = generation_job(session, generation_id)
+        return await curator.publish_comment(session, job, body.text)
 
     @app.post("/api/generate/{generation_id}/cancel")
     async def cancel(request: Request, generation_id: str):

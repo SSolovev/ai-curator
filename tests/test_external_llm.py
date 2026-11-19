@@ -265,6 +265,84 @@ def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(normalize
     assert restored["evidence"][0]["source_ref"] == original_ref
 
 
+def test_organization_matches_are_combined_before_sending_to_external_model(normalized, valid_result):
+    class OrganizationDetector:
+        async def generate(self, messages, schema, cancel_event):
+            categories = schema["properties"]["matches"]["items"]["properties"]["category"]["enum"]
+            assert "ORGANIZATION" in categories
+            payload = messages[1]["content"].split("<records>\n", 1)[1].split("\n</records>", 1)[0]
+            records = json.loads(payload)
+            assert normalized.context_selection.policy not in {record["text"] for record in records}
+            return {
+                "matches": [
+                    {"record_id": record["record_id"], "text": text, "category": "ORGANIZATION"}
+                    for record in records
+                    for text in ("Контур Север", "Макет", "demo")
+                    if text in record["text"]
+                ]
+            }
+
+    normalized.interactions[0].text = (
+        "SRC-1234. Обсудили ПАО «Подрядчик Макет» и Контур Север. "
+        "Алиасы ИТ9, IT_NINE, demo.invalid. Почта name@demo.invalid."
+    )
+    privacy_filter = PersonalDataFilter(
+        OrganizationDetector(),
+        ("ит9", "it_nine", "demo.invalid"),
+        ROOT / "prompts/pii_filter.system.txt",
+    )
+    external = CapturingValidLlm(valid_result)
+    service = CuratorService(
+        Settings(llm_runtime="external", external_llm_enabled=True),
+        ROOT,
+        llm=external,
+        privacy_filter=privacy_filter,
+    )
+
+    asyncio.run(service.generate(SessionState(context=normalized), "organization-redaction", set()))
+
+    assert (
+        "SRC-1234. Обсудили [PII_ORGANIZATION] и [PII_ORGANIZATION]. "
+        "Алиасы [PII_DICTIONARY], [PII_DICTIONARY], [PII_DICTIONARY]. Почта [PII_EMAIL]."
+        in external.messages[1]["content"]
+    )
+    assert normalized.context_selection.policy in external.messages[1]["content"]
+
+
+def test_invalid_organization_span_is_logged_and_blocks_external_request(normalized, caplog):
+    class InvalidSpanDetector:
+        async def generate(self, messages, schema, cancel_event):
+            record_id = schema["properties"]["matches"]["items"]["properties"]["record_id"]["enum"][0]
+            return {
+                "matches": [
+                    {"record_id": record_id, "text": "Ошибка Макет", "category": "ORGANIZATION"}
+                ]
+            }
+
+    privacy_filter = PersonalDataFilter(
+        InvalidSpanDetector(),
+        ("Проект Альфа",),
+        ROOT / "prompts/pii_filter.system.txt",
+    )
+    external = NeverCalledExternalLlm()
+    service = CuratorService(
+        Settings(llm_runtime="external", external_llm_enabled=True),
+        ROOT,
+        llm=external,
+        privacy_filter=privacy_filter,
+    )
+
+    with pytest.raises(CuratorError) as error:
+        asyncio.run(service.generate(SessionState(context=normalized), "invalid-pii-span", set()))
+
+    assert error.value.code == "PII_FILTER_FAILED"
+    assert external.calls == 0
+    event = next(record for record in caplog.records if record.msg == "pii_filter_failed")
+    assert event.code == "PII_FILTER_SPAN_MISMATCH"
+    assert not hasattr(event, "request_body")
+    assert not hasattr(event, "response_body")
+
+
 @pytest.mark.parametrize("runtime", ["llama_cpp", "ollama", "external"])
 def test_main_llm_is_not_called_when_privacy_filter_fails(normalized, runtime):
     external = NeverCalledExternalLlm()

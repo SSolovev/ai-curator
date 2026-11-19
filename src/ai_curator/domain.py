@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import date as Date
 from datetime import datetime as DateTime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 ModelRuntime = Literal["llama_cpp", "ollama", "external"]
 
@@ -136,3 +136,7 @@ class GenerateInput(StrictModel):
 class ExportInput(StrictModel):
     format: Literal["json", "markdown"]
     result: dict
+
+
+class PublishCommentInput(StrictModel):
+    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]

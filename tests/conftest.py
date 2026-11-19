@@ -35,8 +35,9 @@ def noop_privacy_filter():
 
 
 @pytest.fixture
-def golden_data():
-    return json.loads((FIXTURES / "golden_jira.json").read_text(encoding="utf-8"))
+def alexey_jira_data():
+    data = json.loads((FIXTURES / "golden_jira.json").read_text(encoding="utf-8"))
+    return next(employee for employee in data["employees"] if employee["issue"]["key"] == "DEMO-666")
 
 
 @pytest.fixture
@@ -55,11 +56,11 @@ def mapping():
 
 
 @pytest.fixture
-def normalized(golden_data, mapping):
+def normalized(alexey_jira_data, mapping):
     return normalize_bundle(
-        employee_issue=golden_data["employee"],
-        comments=golden_data["comments"],
-        children=golden_data["children"],
+        employee_issue=alexey_jira_data["issue"],
+        comments=alexey_jira_data["comments"],
+        children=alexey_jira_data["children"],
         mapping=mapping,
         hmac_key=b"test-key-that-never-leaves-the-session",
         current_time=datetime(2026, 8, 12, 12, 0, tzinfo=UTC),

@@ -1,10 +1,17 @@
-# syntax=docker/dockerfile:1.7
 FROM python:3.12.13-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS builder
 WORKDIR /build
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
-COPY pyproject.toml README.md requirements.prod.lock ./
+COPY requirements.prod.lock ./
+RUN python -m pip wheel --wheel-dir=/wheels -r requirements.prod.lock
+
+COPY pyproject.toml ./
+RUN python -c 'import subprocess, sys, tomllib; from pathlib import Path; \
+    build_requires = tomllib.loads(Path("pyproject.toml").read_text())["build-system"]["requires"]; \
+    subprocess.check_call([sys.executable, "-m", "pip", "install", *build_requires])'
+
+COPY README.md ./
 COPY src ./src
-RUN python -m pip wheel --wheel-dir=/wheels --no-deps . && python -m pip wheel --wheel-dir=/wheels -r requirements.prod.lock
+RUN python -m pip wheel --wheel-dir=/wheels --no-index --no-deps --no-build-isolation .
 
 FROM python:3.12.13-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b AS runtime
 ARG APP_UID=10001

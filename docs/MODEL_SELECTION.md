@@ -25,7 +25,7 @@ Gemma 4 и Qwen3 имеют thinking modes. Для извлечения собы
 
 - [Qwen3 official announcement](https://qwenlm.github.io/blog/qwen3/) — Apache-2.0, размеры, 119 языков и контекст;
 - [Qwen3-8B official model card](https://huggingface.co/Qwen/Qwen3-8B) — 8.2B, native 32,768/YaRN 131,072;
-- [Qwen3-8B official GGUF file](https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/212c964b8f97cb5edc203d411b767aaae707e653/Qwen3-4B-Q4_K_M.gguf) — 5.03 GB и SHA-256;
+- [Qwen3-8B Q4_K_M GGUF](https://huggingface.co/Qwen/Qwen3-8B-GGUF/blob/1d54a16a18cba0d8fbad4a16db801decc729e099/Qwen3-8B-Q4_K_M.gguf) — файл для режима Ollama;
 - [Qwen3-4B official GGUF](https://huggingface.co/Qwen/Qwen3-4B-GGUF) — quant sizes и llama.cpp guidance;
 - [Gemma 4 в каталоге Ollama](https://ollama.com/library/gemma4) — официальный тег `gemma4:12b`, Q4_K_M-пакет и варианты модели;
 - [Gemma 4 model overview](https://ai.google.dev/gemma/docs/core) — возможности, память, structured output и контекст;
@@ -43,6 +43,6 @@ Gemma 4 и Qwen3 имеют thinking modes. Для извлечения собы
 ./scripts/benchmark-model.sh
 ```
 
-Скрипт перезапускает только model container, измеряет время до health, пик container memory во время запроса, TTFT, completion tokens/sec, parse/JSON Schema validity и структурные quality checks на вымышленном fixture. Результат пишется в `reports/model-benchmark.json`; он не содержит Jira PAT/реальных данных.
+Скрипт останавливает приложение и контейнер модели, запускает отдельный контейнер llama.cpp с тестовым портом и после прогона пытается восстановить приложение. Он измеряет время до готовности и первого токена, скорость генерации, пик памяти и проверяет JSON на вымышленных данных. Результат записывается в `reports/model-benchmark.json`. Этот замер охватывает запрос непосредственно к модели. Проверка полного маршрута через обезличивание выполняется отдельно через демо Jira.
 
 Не сравнивайте цифры из таблицы с результатом как будто это один benchmark: таблица — оценка, JSON report — измерение конкретного запуска. Для выбора 4B/24B замените файл, checksum, Compose model name и повторите один и тот же harness минимум три раза после warm-up.

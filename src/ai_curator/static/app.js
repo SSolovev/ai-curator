@@ -14,6 +14,8 @@ const runtimeNames = {
 
 let csrfToken = "";
 let currentResult = null;
+let publicationTarget = null;
+let publishing = false;
 let currentGeneration = null;
 let currentRuntime = "llama_cpp";
 let employeePage = 1;
@@ -57,10 +59,11 @@ function showNotice(text = "", isError = false) {
   if (text) notice.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function showResultNotice(text = "") {
+function showResultNotice(text = "", isError = false) {
   const notice = $("#generation-result-notice");
   notice.textContent = text;
   notice.classList.toggle("hidden", !text);
+  notice.classList.toggle("error", isError);
 }
 
 function showPanel(id) {
@@ -118,6 +121,13 @@ async function connectToJira(event) {
   };
 
   await api("/api/connect", { method: "POST", body: JSON.stringify(body) });
+  currentGeneration = null;
+  sessionStorage.removeItem(generationStorageKey);
+  setGenerating(false);
+  publicationTarget = null;
+  renderPublishButton();
+  $("#context-summary").replaceChildren();
+  $("#records").replaceChildren();
   form.elements.token.value = "";
   showNotice(demo
     ? "Демо Jira подключена. Все данные в ней вымышлены."
@@ -170,10 +180,12 @@ async function loadEmployee(key) {
   showNotice("Контекст загружен с использованием настроенного сопоставления полей.");
 }
 
-async function restoreContext() {
+async function restoreContext(generationId) {
   try {
-    renderContext(await api("/api/context"));
+    const context = await api("/api/context");
+    if (currentGeneration === generationId) renderContext(context);
   } catch (error) {
+    if (currentGeneration !== generationId) return;
     $("#context-summary").textContent = error.message;
     $("#records").replaceChildren(element("p",
       "Серверный контекст недоступен. Если генерация ещё выполняется, дождитесь итогового статуса."));
@@ -231,10 +243,11 @@ async function pollGeneration(generationId, updateElapsed) {
   while (currentGeneration === generationId) {
     try {
       const job = await api(`${path}/status`);
+      if (currentGeneration !== generationId) break;
       updateElapsed(job.elapsed_seconds);
       if (job.status === "succeeded") {
         const completed = await api(`${path}/result`);
-        return { result: completed.result, elapsedSeconds: job.elapsed_seconds };
+        return { ...completed, elapsedSeconds: job.elapsed_seconds };
       }
       if (job.status !== "running") {
         const error = new Error(job.error?.message || "Не удалось подготовить сценарий.");
@@ -261,13 +274,14 @@ function setGenerating(isGenerating) {
 async function trackGeneration(generationId, initialElapsedSeconds = 0) {
   currentGeneration = generationId;
   sessionStorage.setItem(generationStorageKey, generationId);
-  const runtime = runtimeNames[currentRuntime];
 
   let serverElapsedSeconds = Number(initialElapsedSeconds) || 0;
   let lastSync = Date.now();
   const elapsedSeconds = () => serverElapsedSeconds + (Date.now() - lastSync) / 1000;
-  const progressText = () => `${runtime} готовит сценарий… ${Math.floor(elapsedSeconds())} с`;
-  const renderProgress = () => { $("#notice").textContent = progressText(); };
+  const progressText = () => `${runtimeNames[currentRuntime]} готовит сценарий… ${Math.floor(elapsedSeconds())} с`;
+  const renderProgress = () => {
+    if (currentGeneration === generationId) $("#notice").textContent = progressText();
+  };
 
   setGenerating(true);
   showNotice(progressText());
@@ -278,20 +292,57 @@ async function trackGeneration(generationId, initialElapsedSeconds = 0) {
       lastSync = Date.now();
       renderProgress();
     });
+    if (currentGeneration !== generationId) return;
     renderResult(completed.result);
     currentResult = completed.result;
+    publicationTarget = completed.jira_issue_key
+      ? { generationId, issueKey: completed.jira_issue_key }
+      : null;
+    renderPublishButton();
     showPanel("result");
     showNotice();
     showResultNotice(`Сценарий готов за ${completed.elapsedSeconds.toFixed(1)} с. Проверьте вывод и раскройте источники.`);
   } catch (error) {
-    if (error.code === "GENERATION_NOT_FOUND") sessionStorage.removeItem(generationStorageKey);
+    if (currentGeneration !== generationId) return;
+    if (error.code === "GENERATION_NOT_FOUND") {
+      sessionStorage.removeItem(generationStorageKey);
+      showNotice(error.message, true);
+      return;
+    }
     const duration = error.elapsedSeconds ?? elapsedSeconds();
     const status = error.code === "GENERATION_CANCELLED" ? "Прошло" : "До остановки прошло";
     showNotice(`${error.message} ${status} ${duration.toFixed(1)} с.`, true);
   } finally {
     clearInterval(ticker);
-    currentGeneration = null;
-    setGenerating(false);
+    if (currentGeneration === generationId) {
+      currentGeneration = null;
+      setGenerating(false);
+    }
+  }
+}
+
+async function resumeGeneration() {
+  const generationId = sessionStorage.getItem(generationStorageKey);
+  if (!generationId) return;
+
+  currentGeneration = generationId;
+  $("#generate").disabled = true;
+  try {
+    const job = await api(`/api/generate/${generationId}/status`);
+    if (currentGeneration !== generationId) return;
+    await restoreContext(generationId);
+    if (currentGeneration !== generationId) return;
+    showPanel("preview");
+    await trackGeneration(generationId, job.elapsed_seconds);
+  } catch (error) {
+    if (currentGeneration !== generationId) return;
+    if (error.code !== "GENERATION_NOT_FOUND") throw error;
+    sessionStorage.removeItem(generationStorageKey);
+  } finally {
+    if (currentGeneration === generationId) {
+      currentGeneration = null;
+      setGenerating(false);
+    }
   }
 }
 
@@ -388,6 +439,47 @@ async function copyResult() {
   showNotice("Отредактированный текст скопирован.");
 }
 
+function renderPublishButton() {
+  const button = $("#publish-jira");
+  button.disabled = publishing || !publicationTarget;
+  button.textContent = publicationTarget
+    ? `Опубликовать в Jira · ${publicationTarget.issueKey}`
+    : "Опубликовать в Jira";
+}
+
+async function publishInJira() {
+  const target = publicationTarget;
+  if (publishing || !target) return;
+  const text = $("#editable-result").value.trim();
+  if (!text) {
+    showResultNotice("Введите текст комментария.", true);
+    return;
+  }
+
+  publishing = true;
+  renderPublishButton();
+  showResultNotice(`Публикуем комментарий в ${target.issueKey}…`);
+  try {
+    const posted = await api(`/api/generate/${target.generationId}/comment`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    if (publicationTarget === target) {
+      showResultNotice(`Комментарий опубликован в задаче ${posted.issue_key}.`);
+    }
+  } catch (error) {
+    if (publicationTarget === target) {
+      const message = error.code === "NETWORK_ERROR"
+        ? "Публикация не подтверждена. Проверьте комментарии в Jira перед повторной отправкой."
+        : error.message;
+      showResultNotice(message, true);
+    }
+  } finally {
+    publishing = false;
+    renderPublishButton();
+  }
+}
+
 function downloadBlob(blob, filename) {
   const link = element("a");
   link.href = URL.createObjectURL(blob);
@@ -449,19 +541,14 @@ async function initialize() {
   onClick("#diagnostics", () => refreshModelDiagnostics());
   onClick("#privacy-diagnostics", () => refreshPrivacyDiagnostics());
   onClick("#copy", copyResult);
+  onClick("#publish-jira", publishInJira);
   onClick("#forget", forgetSession);
   $$("[data-export]").forEach((button) => {
     button.addEventListener("click", reportErrors(() => downloadResult(button.dataset.export)));
   });
 
-  const pending = sessionStorage.getItem(generationStorageKey);
-  if (pending) $("#generate").disabled = true;
-  await refreshModelDiagnostics(false);
-  if (pending) {
-    showPanel("preview");
-    await restoreContext();
-    await trackGeneration(pending);
-  }
+  void refreshModelDiagnostics(false);
+  await resumeGeneration();
 }
 
 void reportErrors(initialize)();

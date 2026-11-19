@@ -22,6 +22,10 @@ class GenerationJob:
     started_at: float = field(default_factory=time.monotonic)
     finished_at: float | None = None
     task: asyncio.Task[None] | None = field(default=None, repr=False)
+    jira_issue_key: str | None = None
+    jira_connection: object | None = field(default=None, repr=False)
+    published_comments: dict[str, str] = field(default_factory=dict, repr=False)
+    publication_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     def mark_cancelled(self) -> None:
         if self.status == "cancelled":
@@ -46,6 +50,7 @@ class GenerationJob:
 @dataclass
 class SessionState:
     jira_config: JiraTransportConfig | None = None
+    jira_connection: object = field(default_factory=object, repr=False)
     mapping: FieldMapping = field(default_factory=FieldMapping)
     context: NormalizedContext | None = None
     hmac_key: bytes = field(default_factory=get_or_create_session_hmac_key)
@@ -63,6 +68,7 @@ class SessionState:
             ):
                 job.task.cancel()
         self.jira_config = None
+        self.jira_connection = object()
         self.context = None
         self.cancel_events.clear()
         self.generation_jobs.clear()

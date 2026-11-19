@@ -53,13 +53,21 @@
   </section>
 
   <section id="result" class="panel">
-    <div class="row spread"><h2>Сценарий встречи</h2><div class="result-actions"><button id="copy">Копировать текст</button><button data-export="markdown">Скачать .md</button><button data-export="json">Исходный JSON</button></div></div>
+    <div class="row spread">
+      <h2>Сценарий встречи</h2>
+      <div class="result-actions">
+        <button id="copy">Копировать текст</button>
+        <button data-export="markdown">Скачать .md</button>
+        <button data-export="json">Исходный JSON</button>
+        <button id="publish-jira" type="button" disabled>Опубликовать в Jira</button>
+      </div>
+    </div>
     <div id="generation-result-notice" class="notice hidden" role="status"></div>
     <p class="warning">Проверьте вывод и источники. Не используйте его как автоматическое кадровое решение.</p>
     <label for="editable-result">Текст сценария</label>
-    <p class="hint">Текст можно отредактировать перед копированием в документ или комментарий Jira. Правки хранятся только на этой странице до завершения сессии или повторной генерации.</p>
+    <p class="hint">Проверьте текст перед публикацией. Он будет добавлен в задачу Jira как комментарий с пометкой !СГЕНЕРИРОВАНО ИИ!.</p>
     <textarea id="editable-result" class="editable-result" rows="30" spellcheck="true" aria-describedby="editable-result-hint"></textarea>
-    <p id="editable-result-hint" class="hint">Кнопка «Копировать текст» и файл .md используют вашу отредактированную версию.</p>
+    <p id="editable-result-hint" class="hint">Копирование, файл .md и комментарий Jira используют текущий текст из редактора.</p>
     <details class="structured-result"><summary>Структурированный результат и источники</summary><div id="rendered-result"></div></details>
   </section>
 

@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,7 @@ from .normalization import MM_FIELDS, apply_exclusions, normalize_bundle
 from .privacy_filter import PersonalDataFilter, PrivacyFilterSession, build_privacy_filter
 from .prompting import build_messages
 from .security import read_secret_file
-from .session import SessionState
+from .session import GenerationJob, SessionState
 from .validation import (
     finalize_computed_fields,
     load_model_schema,
@@ -35,6 +36,7 @@ from .validation import (
 )
 
 logger = logging.getLogger("ai_curator.generation")
+AI_COMMENT_MARKER = "!СГЕНЕРИРОВАНО ИИ!"
 
 
 @contextmanager
@@ -167,6 +169,8 @@ class CuratorService:
                 except CuratorError as exc:
                     logger.warning("jira_field_catalog_failed", extra={"code": exc.code})
         state.jira_config = config
+        state.jira_connection = object()
+        state.context = None
         # Do not retain or return identifying profile fields; confirmation is enough.
         return {"ok": True, "authenticated": bool(profile)}
 
@@ -189,6 +193,7 @@ class CuratorService:
     async def load_employee(
         self, state: SessionState, key: str, include_display_name: bool = False
     ) -> dict[str, Any]:
+        connection = state.jira_connection
         safe_key = validate_employee_key(key)
         mapping_fields = {value for value in state.mapping.model_dump().values() if value}
         employee_fields = sorted({"summary", "status", "issuetype"} | mapping_fields)
@@ -240,6 +245,12 @@ class CuratorService:
             mood_issue_type_names=self.settings.mood_issue_type_names,
             feedback_issue_type_names=self.settings.feedback_issue_type_names,
         )
+        if state.jira_connection is not connection:
+            raise CuratorError(
+                "JIRA_CONNECTION_CHANGED",
+                "Подключение к Jira изменилось. Загрузите сотрудника заново.",
+                409,
+            )
         context.context_selection.warnings.extend(optional_warnings)
         state.context = context
         preview = context.model_copy(deep=True)
@@ -257,6 +268,10 @@ class CuratorService:
 
         with log_duration("llm_data_preparation_completed"):
             context = apply_exclusions(state.context, excluded_refs)
+            job = state.generation_jobs.get(generation_id)
+            if job is not None and state.jira_config is not None:
+                job.jira_issue_key = context.employee.jira_key
+                job.jira_connection = state.jira_connection
             # The privacy filter uses the local employee name to remove it from the text.
             validation_context = context.model_dump(mode="json")
 
@@ -371,6 +386,33 @@ class CuratorService:
             result = finalize_computed_fields(restored, validation_context)
         with log_duration("llm_validation_completed", operation=operation):
             return validate_result(result, validation_context)
+
+    async def publish_comment(
+        self, state: SessionState, job: GenerationJob, text: str
+    ) -> dict[str, str]:
+        async with job.publication_lock:
+            if job.status != "succeeded" or job.jira_issue_key is None:
+                raise CuratorError(
+                    "JIRA_COMMENT_RESULT_REQUIRED",
+                    "Сначала сформируйте сценарий для задачи Jira.",
+                    409,
+                )
+            if state.jira_config is None or job.jira_connection is not state.jira_connection:
+                raise CuratorError(
+                    "JIRA_CONNECTION_CHANGED",
+                    "Подключение к Jira изменилось. Сформируйте сценарий заново.",
+                    409,
+                )
+
+            # Repeated submissions of the same draft return the confirmed comment.
+            draft_hash = sha256(text.encode("utf-8")).hexdigest()
+            comment_id = job.published_comments.get(draft_hash)
+            if comment_id is None:
+                body = f"{AI_COMMENT_MARKER}\n\n{text}"
+                async with self.jira(state) as jira:
+                    comment_id = await jira.add_comment(job.jira_issue_key, body)
+                job.published_comments[draft_hash] = comment_id
+            return {"issue_key": job.jira_issue_key, "comment_id": comment_id}
 
     def cancel(self, state: SessionState, generation_id: str) -> bool:
         event = state.cancel_events.get(generation_id)

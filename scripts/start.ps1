@@ -66,6 +66,10 @@ switch ($Runtime) {
     }
 }
 
+# Build the image shared by app and mock-jira before stopping the running app.
+docker compose build app
+if ($LASTEXITCODE -ne 0) { throw "Не удалось собрать образ приложения" }
+
 docker compose stop app
 if ($Runtime -ne "llama_cpp") {
     docker compose --profile llama stop model
@@ -76,9 +80,9 @@ foreach ($Model in ($ModelsToStop | Select-Object -Unique)) {
 }
 
 if ($Runtime -eq "llama_cpp") {
-    docker compose --profile llama --profile demo up --build -d app model mock-jira
+    docker compose --profile llama --profile demo up --no-build -d app model mock-jira
 } else {
-    docker compose --profile demo up --build -d --no-deps app mock-jira
+    docker compose --profile demo up --no-build -d --no-deps app mock-jira
 }
 if ($LASTEXITCODE -ne 0) { throw "Не удалось запустить сервис" }
 Write-Host "ИИ-Куратор запускается ($Runtime). Откройте http://127.0.0.1:$Port"

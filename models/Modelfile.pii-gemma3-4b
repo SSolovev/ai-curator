@@ -1,0 +1,6 @@
+FROM gemma3:4b
+
+# The application supplies the dedicated PII system prompt and a strict JSON
+# schema for every batch. Keep this detector deterministic and compact.
+PARAMETER num_ctx 8192
+PARAMETER temperature 0
