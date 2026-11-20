@@ -40,7 +40,8 @@ docker compose logs --no-log-prefix --since 10m app | rg '"event": "(pii_filter_
 
 - `background_generation_completed` содержит итоговый `code` и время задачи.
 - `pii_filter_completed` показывает, что локальный фильтр обработал контекст перед вызовом основной модели.
-- `pii_filter_failed` содержит причину сбоя обращения к модели обезличивания или проверки её ответа. Код `PII_FILTER_SPAN_MISMATCH` означает, что возвращённого фрагмента нет в указанной входной записи.
+- `pii_filter_failed` содержит причину сбоя обращения к модели обезличивания или проверки её ответа.
+- `pii_filter_span_mismatch_redacted` означает, что модель вернула неточную подстроку. Приложение полностью скрывает указанную запись маркером `[PII_OTHER]` и продолжает обработку, не записывая исходный текст в журнал.
 - `llm_response_metadata` и `external_llm_response_metadata` содержат число токенов и `finish_reason`. Для итогового сценария смотрите `operation=generate`.
 
 ### Логи Ollama на компьютере

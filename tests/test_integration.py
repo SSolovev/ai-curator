@@ -285,6 +285,7 @@ def test_publish_edited_scenario_to_original_demo_employee(monkeypatch, noop_pri
             time.sleep(0.01)
         assert completed.status_code == 200, completed.text
         assert completed.json()["jira_issue_key"] == "DEMO-667"
+        assert completed.json()["jira_base_url"] == "http://mock-jira:9000"
 
         # Loading a different person doesn't change the destination of an earlier scenario.
         assert client.post("/api/employees/DEMO-666/load", headers=headers).status_code == 200
@@ -300,6 +301,7 @@ def test_publish_edited_scenario_to_original_demo_employee(monkeypatch, noop_pri
 
         assert client.post("/api/connect", headers=headers, json=connection).status_code == 200
         assert client.get(f"{path}/result").json()["jira_issue_key"] is None
+        assert client.get(f"{path}/result").json()["jira_base_url"] is None
         blocked = client.post(f"{path}/comment", headers=headers, json={"text": "Другой текст."})
         assert blocked.status_code == 409
         assert blocked.json()["error"]["code"] == "JIRA_CONNECTION_CHANGED"

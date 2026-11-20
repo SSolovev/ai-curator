@@ -251,6 +251,10 @@ button.danger {
   color: var(--brand-blue);
 }
 
+.evidence a {
+  color: inherit;
+}
+
 details {
   margin: 10px 0;
 }

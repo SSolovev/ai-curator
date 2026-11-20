@@ -305,6 +305,12 @@ def create_app(settings: Settings | None = None, service: CuratorService | None 
             "jira_issue_key": (
                 job.jira_issue_key if job.jira_connection is session.jira_connection else None
             ),
+            "jira_base_url": (
+                session.jira_config.base_url
+                if job.jira_connection is session.jira_connection
+                and session.jira_config is not None
+                else None
+            ),
         }
 
     @app.post("/api/generate/{generation_id}/comment")

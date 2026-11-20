@@ -12,9 +12,57 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => entities[character]);
 }
 
-function evidenceText(items) {
+function jiraBrowseUrl(jiraBaseUrl, issueKey, commentId = null) {
+  if (!jiraBaseUrl || !issueKey) return null;
+  try {
+    const url = new URL(jiraBaseUrl);
+    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    url.pathname = `${url.pathname.replace(/\/$/, '')}/browse/${encodeURIComponent(issueKey)}`;
+    url.search = '';
+    url.hash = '';
+    if (commentId) {
+      url.searchParams.set('focusedCommentId', commentId);
+      url.searchParams.set(
+        'page',
+        'com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel',
+      );
+      url.hash = `comment-${encodeURIComponent(commentId)}`;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function sourceDescriptor(sourceRef, sourceContext = {}) {
+  const value = String(sourceRef || '');
+  if (/^SRC-[0-9]{4,}$/.test(value)) {
+    return { label: 'Источник Jira не восстановлен', url: null };
+  }
+  if (value.startsWith('jira-comment:')) {
+    const commentId = value.slice('jira-comment:'.length);
+    return {
+      label: `Комментарий ${commentId}`,
+      url: jiraBrowseUrl(sourceContext.jiraBaseUrl, sourceContext.issueKey, commentId),
+    };
+  }
+  if (value.startsWith('jira:')) {
+    const issueKey = value.slice('jira:'.length);
+    return {
+      label: `Задача ${issueKey}`,
+      url: jiraBrowseUrl(sourceContext.jiraBaseUrl, issueKey),
+    };
+  }
+  return { label: value || 'Источник Jira не указан', url: null };
+}
+
+function evidenceText(items, sourceContext) {
   if (!items?.length) return missingEvidence;
-  const sources = items.map(({ date, source_ref }) => [date, source_ref].filter(Boolean).join(" · "));
+  const sources = items.map(({ date, source_ref }) => {
+    const source = sourceDescriptor(source_ref, sourceContext);
+    const reference = source.url ? `${source.label} — ${source.url}` : source.label;
+    return [date, reference].filter(Boolean).join(' · ');
+  });
   return `Источники: ${sources.join("; ")}`;
 }
 
@@ -22,7 +70,7 @@ function markdownList(items) {
   return items.map((item) => `- ${item}`);
 }
 
-function toEditableText(result) {
+export function toEditableText(result, sourceContext = {}) {
   const history = result.history_summary;
   const cheatSheet = result.curator_cheat_sheet;
   const lines = [
@@ -36,7 +84,7 @@ function toEditableText(result) {
     for (const item of history[key]) {
       lines.push(`- ${item.statement}`);
       if (item.verify_question) lines.push(`  Вопрос для проверки: ${item.verify_question}`);
-      lines.push(`  ${evidenceText(item.evidence)}`);
+      lines.push(`  ${evidenceText(item.evidence, sourceContext)}`);
     }
   }
 
@@ -46,7 +94,12 @@ function toEditableText(result) {
     "", "## Приоритеты встречи", "",
   );
   for (const item of result.meeting_priorities) {
-    lines.push(`### ${item.priority}. ${item.topic}`, item.why_now || "", evidenceText(item.evidence), "");
+    lines.push(
+      `### ${item.priority}. ${item.topic}`,
+      item.why_now || '',
+      evidenceText(item.evidence, sourceContext),
+      '',
+    );
   }
 
   lines.push("## Осторожные формулировки", "");
@@ -93,10 +146,15 @@ function toEditableText(result) {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
-function evidenceHtml(items) {
+function evidenceHtml(items, sourceContext) {
   if (!items?.length) return `<small>${missingEvidence}</small>`;
-  const sources = items.map(({ date, source_ref }) =>
-    `<div>${escapeHtml(date)} · ${escapeHtml(source_ref)}</div>`);
+  const sources = items.map(({ date, source_ref }) => {
+    const source = sourceDescriptor(source_ref, sourceContext);
+    const reference = source.url
+      ? `<a href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source.label)}</a>`
+      : escapeHtml(source.label);
+    return `<div>${escapeHtml(date)} · ${reference}</div>`;
+  });
   return `<details class="evidence"><summary>Источники (${items.length})</summary>
     ${sources.join("")}</details>`;
 }
@@ -105,11 +163,11 @@ function listHtml(items) {
   return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
 }
 
-function historyHtml(history) {
+function historyHtml(history, sourceContext) {
   const statements = historySections.flatMap(([key]) => history[key]);
   const articles = statements.map((item) => `<article>
     <b>${escapeHtml(item.statement)}</b><p>${escapeHtml(item.verify_question)}</p>
-    ${evidenceHtml(item.evidence)}
+    ${evidenceHtml(item.evidence, sourceContext)}
   </article>`);
   return `<h3>Краткий анализ истории</h3><p>${escapeHtml(history.overall_dynamics)}</p>
     ${articles.join("")}`;
@@ -136,10 +194,10 @@ function agendaHtml(agenda) {
     </table>`;
 }
 
-function renderStructuredResult(result) {
+function renderStructuredResult(result, sourceContext) {
   const priorities = result.meeting_priorities.map((item) => `<article>
     <b>${escapeHtml(item.priority)}. ${escapeHtml(item.topic)}</b>
-    <p>${escapeHtml(item.why_now)}</p>${evidenceHtml(item.evidence)}
+    <p>${escapeHtml(item.why_now)}</p>${evidenceHtml(item.evidence, sourceContext)}
   </article>`);
   const sensitiveTopics = result.sensitive_topics.map((item) => `<article>
     <b>${escapeHtml(item.topic)}</b>
@@ -158,7 +216,7 @@ function renderStructuredResult(result) {
     : "";
 
   return `
-    ${historyHtml(result.history_summary)}
+    ${historyHtml(result.history_summary, sourceContext)}
     <h3>Идеи для начала разговора</h3>
     ${listHtml(result.conversation_openers.map((item) => item.phrase))}
     <h3>Приоритеты встречи</h3>${priorities.join("")}
@@ -172,7 +230,10 @@ function renderStructuredResult(result) {
     ${qualityHtml}`;
 }
 
-export function renderResult(result) {
-  document.querySelector("#editable-result").value = toEditableText(result);
-  document.querySelector("#rendered-result").innerHTML = renderStructuredResult(result);
+export function renderResult(result, sourceContext = {}) {
+  document.querySelector("#editable-result").value = toEditableText(result, sourceContext);
+  document.querySelector("#rendered-result").innerHTML = renderStructuredResult(
+    result,
+    sourceContext,
+  );
 }

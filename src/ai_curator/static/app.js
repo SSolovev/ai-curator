@@ -293,7 +293,10 @@ async function trackGeneration(generationId, initialElapsedSeconds = 0) {
       renderProgress();
     });
     if (currentGeneration !== generationId) return;
-    renderResult(completed.result);
+    renderResult(completed.result, {
+      jiraBaseUrl: completed.jira_base_url,
+      issueKey: completed.jira_issue_key,
+    });
     currentResult = completed.result;
     publicationTarget = completed.jira_issue_key
       ? { generationId, issueKey: completed.jira_issue_key }

@@ -197,7 +197,15 @@ class PersonalDataFilter:
         if isinstance(value, list):
             return [PersonalDataFilter.restore_source_refs(item, session) for item in value]
         if isinstance(value, str):
-            return session.source_ref_restore.get(value, value)
+            # Models sometimes repeat a source identifier inside prose or wrap it
+            # in Markdown instead of returning it as a standalone value. Restore
+            # every alias token so internal SRC-* identifiers never reach the UI.
+            return _SOURCE_ALIAS_RE.sub(
+                lambda match: session.source_ref_restore.get(
+                    match.group(0), "[источник Jira не восстановлен]"
+                ),
+                value,
+            )
         return value
 
     async def _detect_with_model(
@@ -228,10 +236,19 @@ class PersonalDataFilter:
                 ):
                     raise CuratorError("PII_FILTER_INVALID", "PII match is invalid.")
                 if text.casefold() not in batch[record_id].casefold():
-                    raise CuratorError(
-                        "PII_FILTER_SPAN_MISMATCH",
-                        "PII match is absent from the indicated input record.",
+                    # A small detector may normalize quotes, whitespace, or a
+                    # name instead of copying an exact source span. Do not pass
+                    # the possibly identifying record through unchanged and do
+                    # not block the entire scenario: redact that record in full.
+                    logger.warning(
+                        "pii_filter_span_mismatch_redacted",
+                        extra={
+                            "record_id": record_id,
+                            "fallback": "full_record_redaction",
+                        },
                     )
+                    matches[record_id] = [(batch[record_id], "OTHER")]
+                    continue
                 matches.setdefault(record_id, []).append((text, category))
         return matches
 

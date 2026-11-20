@@ -264,6 +264,15 @@ def test_privacy_filter_uses_model_dictionary_regex_and_source_aliases(normalize
     restored = privacy_filter.restore_source_refs({"evidence": [{"source_ref": alias}]}, session)
     assert restored["evidence"][0]["source_ref"] == original_ref
 
+    embedded = privacy_filter.restore_source_refs(
+        {"statement": f"Подтверждено источником `{alias}`."}, session
+    )
+    assert embedded["statement"] == f"Подтверждено источником `{original_ref}`."
+    unknown = privacy_filter.restore_source_refs(
+        {"statement": "Модель придумала SRC-9999."}, session
+    )
+    assert unknown["statement"] == "Модель придумала [источник Jira не восстановлен]."
+
 
 def test_organization_matches_are_combined_before_sending_to_external_model(normalized, valid_result):
     class OrganizationDetector:
@@ -309,7 +318,9 @@ def test_organization_matches_are_combined_before_sending_to_external_model(norm
     assert normalized.context_selection.policy in external.messages[1]["content"]
 
 
-def test_invalid_organization_span_is_logged_and_blocks_external_request(normalized, caplog):
+def test_invalid_organization_span_redacts_record_and_allows_external_request(
+    normalized, valid_result, caplog
+):
     class InvalidSpanDetector:
         async def generate(self, messages, schema, cancel_event):
             record_id = schema["properties"]["matches"]["items"]["properties"]["record_id"]["enum"][0]
@@ -324,7 +335,7 @@ def test_invalid_organization_span_is_logged_and_blocks_external_request(normali
         ("Проект Альфа",),
         ROOT / "prompts/pii_filter.system.txt",
     )
-    external = NeverCalledExternalLlm()
+    external = CapturingValidLlm(valid_result)
     service = CuratorService(
         Settings(llm_runtime="external", external_llm_enabled=True),
         ROOT,
@@ -332,13 +343,16 @@ def test_invalid_organization_span_is_logged_and_blocks_external_request(normali
         privacy_filter=privacy_filter,
     )
 
-    with pytest.raises(CuratorError) as error:
-        asyncio.run(service.generate(SessionState(context=normalized), "invalid-pii-span", set()))
+    asyncio.run(service.generate(SessionState(context=normalized), "invalid-pii-span", set()))
 
-    assert error.value.code == "PII_FILTER_FAILED"
-    assert external.calls == 0
-    event = next(record for record in caplog.records if record.msg == "pii_filter_failed")
-    assert event.code == "PII_FILTER_SPAN_MISMATCH"
+    assert external.calls == 1
+    assert "[PII_OTHER]" in external.messages[1]["content"]
+    event = next(
+        record
+        for record in caplog.records
+        if record.msg == "pii_filter_span_mismatch_redacted"
+    )
+    assert event.fallback == "full_record_redaction"
     assert not hasattr(event, "request_body")
     assert not hasattr(event, "response_body")
 
